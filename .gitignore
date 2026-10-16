@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Secrets & Environment variables
+.env
+
+# Logs & temp
+*.log
+.system_generated/
+scratch/
+.tempmediaStorage/
+.user_uploaded/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
