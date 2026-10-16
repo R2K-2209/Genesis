@@ -131,62 +131,31 @@ export default function App() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#F9FAFB] text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
       
-      {/* Postman-Style White Top Navigation Bar */}
-      <header className="h-14 shrink-0 bg-white border-b border-gray-200 px-6 flex items-center justify-between shadow-xs z-30">
+      {/* Signature Orange Top Navigation Bar */}
+      <header className="h-14 shrink-0 bg-[#FF6C37] border-b border-[#E85B27] px-6 flex items-center justify-between shadow-xs z-30">
         
-        {/* Brand & Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-[#FF6C37] flex items-center justify-center text-white shadow-sm font-bold text-lg">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-gray-900 tracking-tight">AegisRegistry</span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-50 text-[#FF6C37] border border-orange-200 font-mono">
-                PS 01
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-500">
-              Autonomous Self-Healing Tool Interface Under API Schema Drift
-            </p>
-          </div>
+        {/* Clean Professional Title (No Logo, No Emoji) */}
+        <div className="flex items-baseline gap-3">
+          <span className="text-lg font-bold text-white tracking-tight">
+            AegisRegistry
+          </span>
+          <span className="hidden md:inline-block text-xs font-medium text-white/90 tracking-wide">
+            Autonomous Self-Healing Tool Interface Under API Schema Drift
+          </span>
         </div>
 
-        {/* Center: System Status Indicators */}
-        <div className="hidden md:flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs">
-            <span className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-            <span className="text-gray-500">FastAPI:</span>
-            <span className={`font-semibold ${serverStatus === 'online' ? 'text-emerald-600' : 'text-red-600'}`}>
-              {serverStatus === 'online' ? 'Online (8000)' : 'Offline'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs">
-            <Database className="w-3.5 h-3.5 text-[#FF6C37]" />
-            <span className="text-gray-500">Database:</span>
-            <span className="text-gray-800 font-medium">SQLite 3 (university.db)</span>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-gray-50 border border-gray-200 text-xs">
-            <Cpu className="w-3.5 h-3.5 text-orange-600" />
-            <span className="text-gray-500">Agent:</span>
-            <span className="text-gray-800 font-medium">Aegis Agent (Groq / SQLite)</span>
-          </div>
-        </div>
-
-        {/* Right Top Corner Buttons: API Explorer + Database State */}
+        {/* Right Corner Action Buttons: API Catalog & Database (Attractive, Professional White Cards) */}
         <div className="flex items-center gap-2.5">
           <button
             id="btn-api-explorer"
             type="button"
             onClick={() => openApiExplorer(null)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 border border-gray-300 shadow-2xs transition-all cursor-pointer hover:border-gray-400 active:scale-95 select-none"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-orange-50 active:bg-orange-100 text-gray-900 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95 select-none"
             title="Open API Catalog & Live Runner (15 Endpoints)"
           >
-            <Code2 className="w-4 h-4 text-[#FF6C37]" />
-            <span className="font-semibold text-gray-800">API Explorer</span>
-            <span className="px-1.5 py-0.2 rounded bg-orange-100 text-[#FF6C37] font-mono text-[10px] font-bold">
+            <Code2 className="w-3.5 h-3.5 text-[#FF6C37]" />
+            <span className="font-semibold text-gray-900">API Catalog</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-orange-100 text-[#FF6C37] font-mono text-[10px] font-bold">
               15 APIs
             </span>
           </button>
@@ -195,15 +164,13 @@ export default function App() {
             id="btn-database-state-inspector"
             type="button"
             onClick={() => setIsDbModalOpen(true)}
-            className="group relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[#FF6C37] hover:bg-[#E85B27] active:bg-[#D44C1A] text-white shadow-sm transition-all hover:shadow cursor-pointer active:scale-95 select-none"
-            title="Inspect 30 University Database Tables"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-orange-50 active:bg-orange-100 text-gray-900 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95 select-none"
+            title="Inspect 31 University Database Tables"
           >
-            <Database className="w-4 h-4 text-white" />
-            <div className="text-left">
-              <span className="leading-tight block font-bold">Database State</span>
-            </div>
-            <span className="px-1.5 py-0.2 rounded bg-white/20 text-white font-mono text-[10px] ml-0.5">
-              {dbOverview ? `${dbOverview.total_tables} Tbls` : '30 Tbls'}
+            <Database className="w-3.5 h-3.5 text-[#FF6C37]" />
+            <span className="font-semibold text-gray-900">Database</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-orange-100 text-[#FF6C37] font-mono text-[10px] font-bold">
+              {dbOverview ? `${dbOverview.total_tables} Tbls` : '31 Tbls'}
             </span>
           </button>
         </div>
