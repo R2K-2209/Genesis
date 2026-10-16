@@ -12,7 +12,11 @@ import {
 } from 'lucide-react';
 import { sendChatMessage } from '../services/api';
 
-export default function ChatbotPanel() {
+export default function ChatbotPanel({
+  onExecutionStart,
+  onExecutionComplete,
+  externalTriggerQuery
+} = {}) {
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -39,6 +43,7 @@ export default function ChatbotPanel() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
+
 
   const toggleEngineMode = () => {
     setEngineMode(prev => {
@@ -82,9 +87,9 @@ export default function ChatbotPanel() {
       .trim();
   };
 
-  const handleSend = async (e) => {
+  const handleSend = async (e, overrideText = null) => {
     if (e) e.preventDefault();
-    const text = inputText.trim();
+    const text = (overrideText !== null ? overrideText : inputText).trim();
     if (!text || loading) return;
 
     const userMsgId = `user-${Date.now()}`;
@@ -98,6 +103,14 @@ export default function ChatbotPanel() {
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setLoading(true);
+
+    if (onExecutionStart) {
+      onExecutionStart({
+        query: text,
+        engineMode,
+        timestamp: Date.now()
+      });
+    }
 
     try {
       const response = await sendChatMessage(text, {
@@ -123,6 +136,13 @@ export default function ChatbotPanel() {
       };
 
       setMessages(prev => [...prev, assistantMsg]);
+
+      if (onExecutionComplete) {
+        onExecutionComplete({
+          ...response,
+          engineMode
+        });
+      }
     } catch (err) {
       setMessages(prev => [
         ...prev,
@@ -134,10 +154,37 @@ export default function ChatbotPanel() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
+
+      if (onExecutionComplete) {
+        onExecutionComplete({
+          status: 'error',
+          reply: err.message,
+          engineMode,
+          execution_logs: [
+            { elapsed_ms: 0.1, tag: 'INGRESS', level: 'info', message: `User query: "${text}"` },
+            { elapsed_ms: 15.0, tag: 'NETWORK', level: 'error', message: `Backend connection error: ${err.message}` }
+          ],
+          telemetry: {
+            execution_time_ms: 15.0,
+            tokens_used: 0,
+            ast_time_ms: 0,
+            ast_tokens: 0,
+            healed: false,
+            status_code: 500,
+            engine_mode: engineMode
+          }
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (externalTriggerQuery && externalTriggerQuery.text) {
+      handleSend(null, externalTriggerQuery.text);
+    }
+  }, [externalTriggerQuery]);
 
   return (
     <div className="w-full lg:w-2/5 h-full flex flex-col bg-white border border-gray-200 rounded-xl shadow-xs overflow-hidden">

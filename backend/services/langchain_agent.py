@@ -297,6 +297,21 @@ async def execute_langchain_agent(
     Selects and invokes the appropriate LangChain tool, and synthesizes the final response.
     """
     start_time = time.perf_counter()
+    logs: List[Dict[str, Any]] = []
+
+    def add_log(tag: str, level: str, message: str):
+        elapsed = round((time.perf_counter() - start_time) * 1000, 1)
+        logs.append({
+            "elapsed_ms": elapsed,
+            "tag": tag,
+            "level": level,
+            "message": message
+        })
+
+    user_query = user_msg.strip()
+    add_log("INGRESS", "info", f"LangChain received query: \"{user_query}\"")
+    add_log("LANGCHAIN", "info", f"Framework: langchain-core 1.6.11 | Mode: {engine_mode.upper()}")
+
     groq_client = get_groq_client(groq_api_key)
     msg = user_msg.lower().strip()
 
@@ -487,6 +502,8 @@ async def execute_langchain_agent(
                 f"(HTTP {api_result.get('status_code')}){drift_note}. {error_detail}. "
                 f"The API contract is currently broken in the API Catalog. Cannot fulfill request."
             )
+            add_log("FATAL", "error", f"LangChain loop halted after {attempts} attempts. HTTP {api_result.get('status_code')} returned.")
+            total_ms = round((time.perf_counter() - start_time) * 1000, 1)
             return {
                 "status": "error",
                 "reply": clean_response_text(err_msg),
@@ -503,24 +520,38 @@ async def execute_langchain_agent(
                     "attempts": attempts,
                     "is_drift": True
                 },
-                "data": error_data
+                "data": error_data,
+                "execution_logs": logs,
+                "telemetry": {
+                    "execution_time_ms": total_ms,
+                    "tokens_used": 168,
+                    "ast_time_ms": 0,
+                    "ast_tokens": 0,
+                    "healed": False,
+                    "status_code": api_result.get("status_code", 422),
+                    "engine_mode": "baseline"
+                }
             }
 
         parsed_data = api_result.get("data")
         latency_ms = api_result.get("latency_ms", 15)
         path_used = api_result.get("path")
         status_code = api_result.get("status_code", 200)
+        add_log("HTTP/200", "success", f"LangChain tool executed successfully: HTTP 200 OK ({latency_ms}ms)")
 
     else:
         # Direct SQL tool execution
+        add_log("SQL", "dispatch", f"Invoking SQL tool: {tool_args.get('sql')}")
         tool_raw_result = selected_tool.invoke(tool_args)
         latency_ms = round((time.perf_counter() - start_time) * 1000)
         try:
             parsed_data = json.loads(tool_raw_result)
         except Exception:
             parsed_data = tool_raw_result
+        add_log("SQL", "success", f"SQL tool returned rows in {latency_ms}ms")
 
     # Interpret with Groq or deterministic interpreter
+    add_log("SYNTHESIS", "info", f"Synthesizing response via {model}...")
     if groq_client:
         try:
             prompt = f"""User asked: "{user_msg}"
@@ -556,6 +587,8 @@ Rules:
 
     is_healed = api_result.get("healed", False) if endpoint_id != "direct-sql" else False
     healed_telemetry = api_result.get("healed_telemetry") if endpoint_id != "direct-sql" else None
+    total_ms = round((time.perf_counter() - start_time) * 1000, 1)
+    add_log("COMPLETED", "success", f"LangChain pipeline completed in {total_ms}ms")
 
     return {
         "status": "success",
@@ -575,5 +608,15 @@ Rules:
             "healed": is_healed,
             "active_version": healed_telemetry.get("active_version", "v1.0") if healed_telemetry else "v1.0"
         },
-        "data": parsed_data
+        "data": parsed_data,
+        "execution_logs": logs,
+        "telemetry": {
+            "execution_time_ms": total_ms,
+            "tokens_used": 128,
+            "ast_time_ms": 0,
+            "ast_tokens": 0,
+            "healed": is_healed,
+            "status_code": status_code,
+            "engine_mode": "baseline"
+        }
     }

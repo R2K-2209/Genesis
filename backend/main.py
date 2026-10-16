@@ -5,10 +5,13 @@ and dynamic mock API endpoints for self-healing agent testing.
 """
 
 import os
+import time
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, HTTPException, Query, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+SERVER_START_TIME = time.time()
 
 from backend.database import (
     DB_PATH,
@@ -186,11 +189,14 @@ MUTATION_STATE = {
 
 @app.get("/api/health")
 def health_check():
+    uptime = time.time() - SERVER_START_TIME
     return {
         "status": "online",
         "service": "Genesis Backend",
         "database_exists": os.path.exists(DB_PATH),
-        "mutation_state": MUTATION_STATE
+        "mutation_state": MUTATION_STATE,
+        "uptime_seconds": round(uptime, 1),
+        "start_time": SERVER_START_TIME
     }
 
 
