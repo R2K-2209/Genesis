@@ -158,28 +158,49 @@ export default function ChatbotPanel() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Dual-Engine Mode Switch: Baseline (LangChain) vs AegisRegistry (Self-Healing) */}
-          <div className="flex items-center bg-gray-100 p-0.5 rounded-full border border-gray-300 shadow-2xs">
+          {/* Small Toggle Switch with Status Outside Button */}
+          <div className="flex items-center gap-1.5 bg-gray-50/90 px-2 py-1 rounded-full border border-gray-200 shadow-2xs">
+            {/* Left Status Label: LangChain */}
             <button
-              id="btn-langchain-toggle"
+              id="label-langchain"
               type="button"
               onClick={() => {
                 setEngineMode('baseline');
                 localStorage.setItem('engine_mode', 'baseline');
               }}
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-all ${
+              className={`text-[10px] font-mono transition-all cursor-pointer select-none flex items-center gap-1 ${
                 engineMode === 'baseline'
-                  ? 'bg-white text-gray-800 shadow-xs border border-gray-200 ring-1 ring-amber-400'
-                  : 'text-gray-500 hover:text-gray-800'
+                  ? 'font-bold text-gray-900'
+                  : 'font-normal text-gray-400 hover:text-gray-600'
               }`}
-              title="Baseline Mode: Standard LangChain Agent (loops 3x and stops on drift)"
+              title="Baseline Mode: Standard LangChain Agent (loops and fails on drift)"
             >
-              <span className="flex items-center gap-1">
-                <span className={`w-1.5 h-1.5 rounded-full ${engineMode === 'baseline' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}`} />
-                🦜 LangChain
-              </span>
+              <span className={`w-1.5 h-1.5 rounded-full transition-colors ${engineMode === 'baseline' ? 'bg-amber-500' : 'bg-transparent'}`} />
+              <span>LangChain</span>
             </button>
 
+            {/* Small Toggle Switch Button */}
+            <button
+              id="btn-langchain-toggle"
+              type="button"
+              role="switch"
+              aria-checked={engineMode === 'aegis'}
+              onClick={toggleEngineMode}
+              className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-gray-300 transition-colors duration-200 ease-in-out focus:outline-none ${
+                engineMode === 'aegis'
+                  ? 'bg-gradient-to-r from-emerald-500 to-[#FF6C37] border-transparent'
+                  : 'bg-gray-200 hover:bg-gray-300'
+              }`}
+              title={`Switch Engine: currently ${engineMode === 'aegis' ? 'AegisRegistry' : 'LangChain'}`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out mt-[1px] ml-[1px] ${
+                  engineMode === 'aegis' ? 'translate-x-3' : 'translate-x-0'
+                }`}
+              />
+            </button>
+
+            {/* Right Status Label: AegisRegistry */}
             <button
               id="btn-aegis-toggle"
               type="button"
@@ -187,15 +208,15 @@ export default function ChatbotPanel() {
                 setEngineMode('aegis');
                 localStorage.setItem('engine_mode', 'aegis');
               }}
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-all flex items-center gap-1 ${
+              className={`text-[10px] font-mono transition-all cursor-pointer select-none flex items-center gap-1 ${
                 engineMode === 'aegis'
-                  ? 'bg-gradient-to-r from-emerald-600 to-[#FF6C37] text-white shadow-xs'
-                  : 'text-gray-500 hover:text-gray-800'
+                  ? 'font-bold text-[#FF6C37]'
+                  : 'font-normal text-gray-400 hover:text-gray-600'
               }`}
-              title="AegisRegistry Mode: Autonomous Self-Healing Engine (diagnoses AST <15ms & hot-patches)"
+              title="AegisRegistry Mode: Autonomous Self-Healing Engine (diagnoses AST & hot-patches)"
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${engineMode === 'aegis' ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
-              <span>🛡️ AegisRegistry</span>
+              <span>AegisRegistry</span>
+              <span className={`w-1.5 h-1.5 rounded-full transition-colors ${engineMode === 'aegis' ? 'bg-emerald-500 animate-pulse' : 'bg-transparent'}`} />
             </button>
           </div>
 
