@@ -10,7 +10,12 @@ import {
   Database,
   Code2
 } from 'lucide-react';
-import { sendChatMessage } from '../services/api';
+import {
+  sendChatMessage,
+  executeSingleFlightTest,
+  executeSqlUndoTest,
+  executeGitOpsPrTest
+} from '../services/api';
 
 export default function ChatbotPanel({
   onExecutionStart,
@@ -125,13 +130,25 @@ export default function ChatbotPanel({
     }
 
     try {
-      const response = await sendChatMessage(text, {
-        groqApiKey: groqApiKey.trim(),
-        model: selectedModel,
-        useLangChain: targetEngineMode === 'baseline',
-        engineMode: targetEngineMode,
-        activeDrifts
-      });
+      let response;
+      if (scenarioConfig?.id === 'single-flight') {
+        response = await executeSingleFlightTest();
+      } else if (scenarioConfig?.id === 'sql-undo') {
+        response = await executeSqlUndoTest();
+      } else if (scenarioConfig?.id === 'gitops-pr') {
+        response = await executeGitOpsPrTest({
+          githubToken: localStorage.getItem('github_token') || '',
+          githubRepo: localStorage.getItem('github_repo') || 'R2K-2209/Genesis'
+        });
+      } else {
+        response = await sendChatMessage(text, {
+          groqApiKey: groqApiKey.trim(),
+          model: selectedModel,
+          useLangChain: targetEngineMode === 'baseline',
+          engineMode: targetEngineMode,
+          activeDrifts
+        });
+      }
 
       const assistantMsg = {
         id: `assistant-${Date.now()}`,
@@ -142,7 +159,7 @@ export default function ChatbotPanel({
         raw_data: response.data,
         missing_fields: response.missing_fields,
         is_langchain: response.is_langchain || targetEngineMode === 'baseline',
-        healed: response.healed || response.api_call?.healed || false,
+        healed: response.healed || response.api_call?.healed || response.telemetry?.healed || false,
         healed_telemetry: response.healed_telemetry,
         engine: targetEngineMode === 'aegis' ? 'AegisRegistry Autonomous Healer' : (response.engine || 'LangChain Agent (Baseline)'),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

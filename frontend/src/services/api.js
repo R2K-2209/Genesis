@@ -197,3 +197,46 @@ export async function resetAegisState() {
   return res.json();
 }
 
+export async function executeSingleFlightTest() {
+  const res = await fetch(`${API_BASE_URL}/api/aegis/test/single-flight`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Single-flight test failed' }));
+    throw new Error(err.detail || 'Single-flight test failed');
+  }
+  return res.json();
+}
+
+export async function executeSqlUndoTest() {
+  const res = await fetch(`${API_BASE_URL}/api/aegis/test/sql-undo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'SQL Undo test failed' }));
+    throw new Error(err.detail || 'SQL Undo test failed');
+  }
+  return res.json();
+}
+
+export async function executeGitOpsPrTest({ githubToken = '', githubRepo = 'R2K-2209/Genesis', baseBranch = 'main', toolName = 'get_student', endpoint = '/api/v1/students/{student_id}/graduation-eligibility' } = {}) {
+  const res = await fetch(`${API_BASE_URL}/api/aegis/test/gitops-pr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      github_token: githubToken || undefined,
+      github_repo: githubRepo,
+      base_branch: baseBranch,
+      tool_name: toolName,
+      endpoint: endpoint
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'GitOps Auto-PR test failed' }));
+    throw new Error(err.detail || 'GitOps Auto-PR test failed');
+  }
+  return res.json();
+}
+
