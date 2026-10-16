@@ -1,139 +1,122 @@
-# 🛡️ AegisRegistry: Autonomous Zero-Downtime Agent Tool Self-Healing Gateway
+# AegisRegistry 🛡️
+> **Autonomous Self-Healing Tool Interface Under API Schema Drift**
 
-> **VESIT Quest IT Hackathon — Problem Statement 01**  
-> *Production-Grade Autonomous Schema Drift Repair, In-Memory MVCC Hot-Patching, and GitOps Code Remediation.*
-
----
-
-## 🌟 Executive Summary
-
-Modern AI agents (e.g. LangChain, AutoGen, CrewAI) break when backend API contracts drift (field renames, nested payloads, mandatory protocol headers). When faced with an `HTTP 422 Unprocessable Entity`, standard agents repeatedly pass error traces into the LLM context, burning runaway token budgets and crashing with unhandled exceptions.
-
-**AegisRegistry** solves this autonomously with **zero downtime** and **zero LLM healing tokens**:
-1. **Dynamic AST Compiler:** Diagnoses and repairs arbitrary Pydantic schema drift in `< 15ms` using deterministic tree alignment (**0 AI tokens**).
-2. **In-Memory MVCC Hot-Patching:** Atomically upgrades the in-memory tool contract from `v1.0` to `v1.1` with **0.00s downtime**.
-3. **Real Database Integration:** Backed by persistent relational SQLite tables (`genesis_real.db`) computing live weighted CGPA arithmetic and tuition balance deductions.
-4. **GitOps Auto-PR Daemon:** Asynchronously generates permanent Pydantic code migrations and files GitHub PRs.
+AegisRegistry is an end-to-end framework and live testbed that demonstrates autonomous AI tool resilience when third-party APIs undergo breaking schema changes (Schema Drift). It features a full university relational database, a 15-endpoint API Catalog, an interactive API Explorer with live schema drift mutation injection, and a dual-agent natural language interface supporting both standard Groq LLM tool-calling and LangChain Agent execution.
 
 ---
 
-## 📊 Evaluation Scorecard (VESIT Quest IT Rubric)
+## Key Highlights
 
-| Metric | Standard LangChain ReAct Agent | AegisRegistry (Our Solution) | Advantage |
-| :--- | :--- | :--- | :--- |
-| **Mean Time to Recover (MTTR)** | ❌ **Crash / Failed** (> 6.5s) | 🟢 **0.185s** (< 200ms) | **35x Faster** |
-| **Healer Token Consumption** | ❌ **4,500+ Tokens** ($0.05/call) | 🟢 **0 Tokens** (Pure AST Compiler) | **100% Cost Reduction** |
-| **Runtime Availability** | ❌ **100% Service Outage** | 🟢 **0.00s Downtime** (Atomic MVCC Swap) | **Zero Downtime** |
-| **Data Consistency Guard** | ❌ None (Blind Retries Corrupt DB) | 🟢 **Semantic Invariant Guard** | Catches Silent Drift |
-| **Long-Term Code Fix** | ❌ Manual Developer Bug Ticket | 🟢 **Autonomous GitOps Auto-PR** | Hands-free Repo Sync |
+- **Relational University Schema**: 30 SQLite tables, 6,962 rows of courses, students, faculty, transcripts, prerequisites, departments, and financial ledgers.
+- **15-Endpoint REST API Catalog**: Categorized into Simple (1 table), Medium (2–4 tables), and Complex (5–6 tables) endpoints.
+- **Interactive API Explorer & Postman Runner**: Test any endpoint in real time with parameters, headers, response timing, and formatted JSON output.
+- **Live Schema Drift Engine**: Dynamically break API contracts on the fly with 5 enterprise drift scenarios:
+  - ⚡ *Drift 1: Parameter Renamed* (e.g. `query` ➔ `title_or_author`)
+  - ⚡ *Drift 2: Data Type Mutated* (e.g. `student_id` `int` ➔ `string`)
+  - ⚡ *Drift 3: Nested Object Wrapped* (e.g. flat arguments wrapped in `{ "filter": { ... } }`)
+  - ⚡ *Drift 4: Missing Required Field* (omits mandatory pagination/filter fields)
+  - ⚡ *Drift 5: Route Deprecated / Path Altered* (e.g. endpoint relocated)
+- **Autonomous Aegis & LangChain Agents**: Natural language query engine with live database tool access.
+- **Strict 3-Attempt Retry Limit**: When an API fails due to schema drift, the agent attempts at most 3 times and halts immediately with detailed contract diagnostics, refusing to hallucinate or bypass broken endpoints.
+- **Postman-Themed Design System**: Clean white theme with signature Postman Orange (`#FF6C37`) accents and micro-interactions.
 
 ---
 
-## 🏗️ Architecture & Component Flow
+## Architecture Overview
 
 ```
-[User Request] 
-      │
-      ▼
-[Groq LPU Agent] (openai/gpt-oss-20b)
-      │ Formulates Tool Call (v1.0 Schema)
-      ▼
-[Aegis Interceptor]
-      │ Dispatches HTTP POST
-      ▼
-[Dynamic API Gateway] ── (Schema Drift Occurred: 422 Unprocessable Entity)
-      │
-      ▼
-[0-Token Dynamic AST Healer] ── < 15ms Tree Alignment (0 TOKENS)
-      │
-      ▼
-[MVCC In-Memory Registry] ──── Hot-Patches Pointer: v1.0 ➔ v1.1 (0.00s Downtime)
-      │
-      ▼
-[Resumed Retry] ───────────── Retries with Healed Payload ➔ 200 OK!
-      │
-      ├──────────────────────► [Real SQLite DB] (Weighted CGPA math on genesis_real.db)
-      ├──────────────────────► [Audit Ledger] (Trace ID logged for 1-Click Undo)
-      └──────────────────────► [GitOps Daemon] (Autonomous Pydantic migration PR)
+               ┌────────────────────────────────────────────────────────┐
+               │          React 18 + Tailwind CSS Frontend              │
+               │   • Postman UI / Catalog / API Explorer / Drift Picker  │
+               │   • Live Chatbot Interface (Aegis / LangChain Switch)  │
+               │   • Database State Inspector (30 Tables / 6,962 Rows)   │
+               └──────────────────────────┬─────────────────────────────┘
+                                          │ HTTP / JSON
+                                          ▼
+               ┌────────────────────────────────────────────────────────┐
+               │               FastAPI Backend (Port 8000)              │
+               │   • Schema Drift Middleware & Interceptor              │
+               │   • 15 Relational REST Endpoints                       │
+               │   • Active Drift State Registry (/api/v1/drift-state)  │
+               │   • Aegis Agent & LangChain Agent Endpoints            │
+               └──────────────┬───────────────────────────┬─────────────┘
+                              │                           │
+                              ▼                           ▼
+               ┌──────────────────────────┐    ┌─────────────────────────┐
+               │    Groq / LLM Service    │    │    SQLite 3 Database    │
+               │   (Llama-3.3-70b-Versatile)│  │   (university.db)       │
+               └──────────────────────────┘    └─────────────────────────┘
 ```
 
 ---
 
-## 🚀 Quickstart & Live Demo
+## Quickstart Guide
 
-### 1. Prerequisites
+### Prerequisites
 - Python 3.10+
-- Dependencies: `fastapi`, `uvicorn`, `httpx`, `streamlit`, `groq`, `pydantic`
+- Node.js 18+ & npm
+- (Optional) Groq API Key (falls back to local intelligent query planner if absent)
 
+### 1. Launch Everything with One Command
+Run the unified launcher script:
 ```bash
-pip install fastapi uvicorn httpx streamlit groq pydantic
+python launch.py
 ```
-
-### 2. Environment Configuration
-Create a `.env` file in the project root (see `.env.example`):
-```env
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=openai/gpt-oss-20b
-```
-
-### 3. Launch the Platform (1-Click)
-Start both the Dynamic API Server and the Interactive UI Dashboard in a single command:
-```bash
-python launch_all.py
-```
-*(On Windows, you can simply double-click `start_demo.bat`)*
-
-Dashboard will open automatically at:  
-👉 **`http://localhost:8501`**
+This automatically boots:
+- **FastAPI Backend**: `http://127.0.0.1:8000` (Swagger docs at `/docs`)
+- **React Frontend**: `http://127.0.0.1:5173`
 
 ---
 
-## 🧪 Verification Test Suite
+## Manual Execution
 
-Run the end-to-end verification suite across all 5 drift scenarios against the live SQLite database:
+### Backend Setup
 ```bash
-python test_real_suite.py
+cd backend
+python -m pip install fastapi uvicorn groq langchain langchain-core pydantic
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### Output:
-```text
-  [✅ PASS] Scenario 1: Baseline Clean (v1.0)                       | MTTR=0.000s | Tokens=0
-  [✅ PASS] Scenario 2: Field Rename (user_id -> account_id)        | MTTR=0.176s | Tokens=0
-  [✅ PASS] Scenario 3: Deep Object Nesting (target.id: int)        | MTTR=0.188s | Tokens=0
-  [✅ PASS] Scenario 4: Required Protocol Header (X-API-Version)    | MTTR=0.174s | Tokens=0
-  [✅ PASS] Scenario 5: Compound Break (Nesting + Header + Cast)    | MTTR=0.162s | Tokens=0
----------------------------------------------------------------------------
-  🎯 ZERO-TOUCH ADAPTATION RATE: 100.0% (5/5 Passed)
-  ⚡ AVERAGE MTTR: 0.140 seconds (Target < 2.0s: PASSED)
+### Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 ---
 
-## 📁 Repository Structure
+## Project Structure
 
 ```
 Genesis/
-├── aegis/
-│   ├── dynamic_ast_healer.py  # Generalized 0-token AST schema alignment engine
-│   ├── groq_agent.py          # Real Groq LPU AI agent (openai/gpt-oss-20b)
-│   ├── interceptor.py         # HTTP 422 trap & single-flight concurrency lock
-│   ├── registry.py            # In-memory MVCC zero-downtime versioned registry
-│   ├── ledger.py              # Request trace ledger for transaction rollback
-│   └── gitops.py              # Autonomous GitOps Pydantic migration daemon
-├── db/
-│   └── database.py            # Real SQLite connection & live CGPA calculations
-├── baseline_agent.py          # Standard LangChain ReAct agent (failure control)
-├── dynamic_api_server.py      # Real FastAPI dynamic gateway with runtime mutator
-├── dashboard.py               # Sleek, zero-scroll 3-step Streamlit presentation UI
-├── genesis_real.db            # Persistent relational SQLite database
-├── launch_all.py              # 1-click unified launcher (Backend + Dashboard)
-├── start_demo.bat             # Windows 1-click batch launcher
-├── test_real_suite.py         # 100% automated test suite across all 5 drift types
-├── .env.example               # Environment variables template
-└── .gitignore                 # Clean repository gitignore
+├── 01_BASIC_WORKFLOW_AND_SCENARIOS.md  # Core conceptual guide & drift breakdown
+├── 02_ARCHITECTURE_AND_LAYERS.md       # Layer-by-layer technical specification
+├── launch.py                           # Unified process orchestrator
+├── university-sample-database-...json  # Complete 30-table raw seed dataset
+├── backend/
+│   ├── main.py                         # FastAPI app, CORS, & schema drift middleware
+│   ├── database.py                     # SQLite engine, CRUD handlers, & schema generator
+│   ├── routes/
+│   │   └── api_catalog.py              # 15 university catalog endpoints
+│   └── services/
+│       ├── drift_state.py              # Central drift state registry & request interceptor
+│       ├── chatbot_agent.py            # Aegis agent with 3-attempt hard stop
+│       └── langchain_agent.py          # LangChain agent with drifted tool binding
+└── frontend/
+    ├── src/
+    │   ├── components/
+    │   │   ├── ApiExplorerModal.jsx    # Postman-style API runner with drift injection
+    │   │   ├── ChatbotPanel.jsx        # Dual-engine chatbot with LangChain toggle
+    │   │   └── DatabaseModal.jsx       # 30-table live database inspector
+    │   ├── services/
+    │   │   └── api.js                  # Frontend API client & drift state sync
+    │   ├── App.jsx                     # Main Aegis dashboard layout
+    │   └── index.css                   # Custom Postman design tokens
+    └── package.json
 ```
 
 ---
 
-## 👥 Authors
-Developed for **VESIT Quest IT Hackathon — Problem Statement 01**.
+## License
+MIT License. Built for autonomous AI tool research and resilient microservice architectures.
