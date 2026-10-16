@@ -87,7 +87,7 @@ export default function ChatbotPanel({
       .trim();
   };
 
-  const handleSend = async (e, overrideText = null) => {
+  const handleSend = async (e, overrideText = null, scenarioConfig = null) => {
     if (e) e.preventDefault();
     const text = (overrideText !== null ? overrideText : inputText).trim();
     if (!text || loading) return;
@@ -104,10 +104,22 @@ export default function ChatbotPanel({
     setInputText('');
     setLoading(true);
 
+    const targetEngineMode = scenarioConfig ? (scenarioConfig.engineMode || 'aegis') : engineMode;
+    if (scenarioConfig && targetEngineMode !== engineMode) {
+      setEngineMode(targetEngineMode);
+      localStorage.setItem('engine_mode', targetEngineMode);
+    }
+
+    const featureTitle = scenarioConfig?.featureTitle || scenarioConfig?.title || scenarioConfig?.label || null;
+    const activeDrifts = scenarioConfig?.driftMode && scenarioConfig?.endpointId
+      ? { [scenarioConfig.endpointId]: scenarioConfig.driftMode }
+      : (scenarioConfig?.activeDrifts || null);
+
     if (onExecutionStart) {
       onExecutionStart({
         query: text,
-        engineMode,
+        featureTitle,
+        engineMode: targetEngineMode,
         timestamp: Date.now()
       });
     }
@@ -116,8 +128,9 @@ export default function ChatbotPanel({
       const response = await sendChatMessage(text, {
         groqApiKey: groqApiKey.trim(),
         model: selectedModel,
-        useLangChain: engineMode === 'baseline',
-        engineMode: engineMode
+        useLangChain: targetEngineMode === 'baseline',
+        engineMode: targetEngineMode,
+        activeDrifts
       });
 
       const assistantMsg = {
@@ -128,10 +141,10 @@ export default function ChatbotPanel({
         api_call: response.api_call,
         raw_data: response.data,
         missing_fields: response.missing_fields,
-        is_langchain: response.is_langchain || engineMode === 'baseline',
+        is_langchain: response.is_langchain || targetEngineMode === 'baseline',
         healed: response.healed || response.api_call?.healed || false,
         healed_telemetry: response.healed_telemetry,
-        engine: engineMode === 'aegis' ? 'AegisRegistry Autonomous Healer' : (response.engine || 'LangChain Agent (Baseline)'),
+        engine: targetEngineMode === 'aegis' ? 'AegisRegistry Autonomous Healer' : (response.engine || 'LangChain Agent (Baseline)'),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -140,7 +153,8 @@ export default function ChatbotPanel({
       if (onExecutionComplete) {
         onExecutionComplete({
           ...response,
-          engineMode
+          featureTitle,
+          engineMode: targetEngineMode
         });
       }
     } catch (err) {
@@ -159,7 +173,8 @@ export default function ChatbotPanel({
         onExecutionComplete({
           status: 'error',
           reply: err.message,
-          engineMode,
+          featureTitle,
+          engineMode: targetEngineMode,
           execution_logs: [
             { elapsed_ms: 0.1, tag: 'INGRESS', level: 'info', message: `User query: "${text}"` },
             { elapsed_ms: 15.0, tag: 'NETWORK', level: 'error', message: `Backend connection error: ${err.message}` }
@@ -171,7 +186,7 @@ export default function ChatbotPanel({
             ast_tokens: 0,
             healed: false,
             status_code: 500,
-            engine_mode: engineMode
+            engine_mode: targetEngineMode
           }
         });
       }
@@ -182,7 +197,7 @@ export default function ChatbotPanel({
 
   useEffect(() => {
     if (externalTriggerQuery && externalTriggerQuery.text) {
-      handleSend(null, externalTriggerQuery.text);
+      handleSend(null, externalTriggerQuery.text, externalTriggerQuery);
     }
   }, [externalTriggerQuery]);
 

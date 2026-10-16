@@ -76,6 +76,7 @@ export default function App() {
     setExecutionData({
       query: queryInfo.query,
       engineMode: queryInfo.engineMode,
+      featureTitle: queryInfo.featureTitle,
       timestamp: queryInfo.timestamp || Date.now(),
       status: 'running',
       apiCall: null,
@@ -84,7 +85,7 @@ export default function App() {
           elapsed_ms: 0.1,
           tag: 'INGRESS',
           level: 'info',
-          message: `User query: "${queryInfo.query}"`
+          message: queryInfo.featureTitle ? `[EVALUATION] Demonstrating: ${queryInfo.featureTitle}` : `User query: "${queryInfo.query}"`
         },
         {
           elapsed_ms: 1.2,
@@ -109,6 +110,7 @@ export default function App() {
       ...prev,
       status: response.status === 'error' ? 'error' : 'completed',
       apiCall: response.api_call,
+      featureTitle: prev?.featureTitle || response.featureTitle,
       logs: response.execution_logs || prev?.logs || [],
       telemetry: response.telemetry || {
         execution_time_ms: response.api_call?.latency_ms || 18.5,
@@ -126,8 +128,16 @@ export default function App() {
     setIsExecuting(false);
   };
 
-  const handleQuickRun = (queryText) => {
-    setExternalQuery({ text: queryText, timestamp: Date.now() });
+  const handleQuickRun = (scenarioConfig) => {
+    if (typeof scenarioConfig === 'string') {
+      setExternalQuery({ text: scenarioConfig, timestamp: Date.now() });
+    } else {
+      setExternalQuery({
+        ...scenarioConfig,
+        text: scenarioConfig.query || scenarioConfig.text,
+        timestamp: Date.now()
+      });
+    }
   };
 
   return (

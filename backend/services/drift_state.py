@@ -129,7 +129,7 @@ def apply_drift_to_request(
     mutated_params = dict(params)
 
     # 1. Parameter Renamed
-    if drift_mode == "param_renamed":
+    if drift_mode in ("param_renamed", "drift_1_param_renamed", "rename"):
         new_params = {}
         for k, v in mutated_params.items():
             renamed = RENAME_RULES.get(k, f"drift_{k}")
@@ -142,27 +142,38 @@ def apply_drift_to_request(
         mutated_params = new_params
 
     # 2. Data Type Mutation (Type Mismatch)
-    elif drift_mode == "type_mutated":
+    elif drift_mode in ("type_mutated", "drift_2_type_cast", "type_cast"):
         for k, v in list(mutated_params.items()):
             if isinstance(v, (int, float)) or k.endswith("_id") or k in ("page", "limit", "min_credits"):
                 mutated_params[k] = f"UUID_ERR_TYPE_{v}_STR"
 
     # 3. Nested Object Required (filter[...])
-    elif drift_mode == "nested_wrapped":
+    elif drift_mode in ("nested_wrapped", "drift_3_nested_object", "nesting"):
         new_params = {}
         for k, v in mutated_params.items():
             new_params[f"filter[{k}]"] = v
         mutated_params = new_params
 
-    # 4. Missing Mandatory Field
-    elif drift_mode == "missing_required":
-        # Remove primary query/path param
+    # 4. Missing Mandatory Field / Header
+    elif drift_mode in ("missing_required", "drift_4_missing_header", "header"):
+        # Remove primary query/path param or require header
         keys_to_remove = [k for k in mutated_params.keys() if k.endswith("_id") or k in ("query", "status", "search")]
         for k in keys_to_remove:
             mutated_params.pop(k, None)
 
-    # 5. Route Migration (/api/v2 path)
-    elif drift_mode == "route_deprecated":
+    # 5. Compound Multi-Fault Drift
+    elif drift_mode in ("compound", "drift_compound"):
+        new_params = {}
+        for k, v in mutated_params.items():
+            renamed = RENAME_RULES.get(k, f"drift_{k}")
+            if isinstance(v, (int, float)) or k.endswith("_id"):
+                new_params[f"filter[{renamed}]"] = f"UUID_ERR_{v}_STR"
+            else:
+                new_params[f"filter[{renamed}]"] = v
+        mutated_params = new_params
+
+    # 6. Route Migration (/api/v2 path)
+    elif drift_mode in ("route_deprecated", "route_migration"):
         mutated_path = mutated_path.replace("/api/v1/", "/api/v2/")
 
     return mutated_path, mutated_params, drift_mode
