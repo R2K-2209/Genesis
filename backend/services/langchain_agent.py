@@ -23,7 +23,8 @@ from backend.services.chatbot_agent import (
     interpret_domain_data,
     interpret_sql_data,
     execute_direct_sql,
-    execute_local_api
+    execute_local_api,
+    execute_local_api_with_aegis
 )
 
 
@@ -288,7 +289,8 @@ async def execute_langchain_agent(
     user_msg: str,
     groq_api_key: Optional[str] = None,
     model: str = "llama-3.3-70b-versatile",
-    active_drifts: Optional[Dict[str, Any]] = None
+    active_drifts: Optional[Dict[str, Any]] = None,
+    engine_mode: str = "baseline"
 ) -> Dict[str, Any]:
     """
     Executes the LangChain pipeline to answer the user's natural language question.
@@ -448,21 +450,30 @@ async def execute_langchain_agent(
     status_code = 200
 
     if endpoint_id != "direct-sql":
-        # Max 3 attempts retry rule: when error occurs, try at most 3 times and stop
-        MAX_RETRIES = 3
-        attempts = 0
-        api_result = None
+        attempts = 1
+        if engine_mode == "aegis":
+            api_result = await execute_local_api_with_aegis(
+                endpoint_id,
+                tool_args,
+                active_drifts=active_drifts,
+                user_prompt=user_msg
+            )
+        else:
+            # Max 3 attempts retry rule: when error occurs, try at most 3 times and stop
+            MAX_RETRIES = 3
+            attempts = 0
+            api_result = None
 
-        while attempts < MAX_RETRIES:
-            attempts += 1
-            api_result = await execute_local_api(endpoint_id, tool_args, active_drifts=active_drifts)
-            if api_result.get("ok"):
-                break
-            if attempts < MAX_RETRIES:
-                await asyncio.sleep(0.05)
+            while attempts < MAX_RETRIES:
+                attempts += 1
+                api_result = await execute_local_api(endpoint_id, tool_args, active_drifts=active_drifts)
+                if api_result.get("ok"):
+                    break
+                if attempts < MAX_RETRIES:
+                    await asyncio.sleep(0.05)
 
         if not api_result.get("ok"):
-            # STOPPED AFTER 3 FAILED ATTEMPTS! Output error directly without fallback to healthy queries
+            # STOPPED AFTER FAILED ATTEMPTS! Output error directly without fallback to healthy queries
             error_data = api_result.get("data")
             error_detail = ""
             if isinstance(error_data, dict):
@@ -543,11 +554,16 @@ Rules:
         else:
             reply = interpret_domain_data(user_msg, endpoint_id, parsed_data)
 
+    is_healed = api_result.get("healed", False) if endpoint_id != "direct-sql" else False
+    healed_telemetry = api_result.get("healed_telemetry") if endpoint_id != "direct-sql" else None
+
     return {
         "status": "success",
         "reply": reply,
         "is_langchain": True,
         "engine": "LangChain Agent (langchain-core 1.6.11)",
+        "healed": is_healed,
+        "healed_telemetry": healed_telemetry,
         "api_call": {
             "endpoint_id": endpoint_id,
             "endpoint_name": f"LangChain Tool: {selected_tool.name}",
@@ -555,7 +571,9 @@ Rules:
             "path": path_used,
             "params": tool_args,
             "latency_ms": latency_ms,
-            "status_code": status_code
+            "status_code": status_code,
+            "healed": is_healed,
+            "active_version": healed_telemetry.get("active_version", "v1.0") if healed_telemetry else "v1.0"
         },
         "data": parsed_data
     }

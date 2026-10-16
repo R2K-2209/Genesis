@@ -162,7 +162,7 @@ export async function resetDriftState() {
   return res.json();
 }
 
-export async function sendChatMessage(message, { groqApiKey = '', model = 'llama-3.3-70b-versatile', history = [], useLangChain = false, activeDrifts = null } = {}) {
+export async function sendChatMessage(message, { groqApiKey = '', model = 'llama-3.3-70b-versatile', history = [], useLangChain = false, engineMode = 'baseline', activeDrifts = null } = {}) {
   const res = await fetch(`${API_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -172,6 +172,7 @@ export async function sendChatMessage(message, { groqApiKey = '', model = 'llama
       model,
       history,
       use_langchain: useLangChain,
+      engine_mode: engineMode,
       active_drifts: activeDrifts || undefined
     })
   });
@@ -181,3 +182,18 @@ export async function sendChatMessage(message, { groqApiKey = '', model = 'llama
   }
   return res.json();
 }
+
+export async function fetchAegisLedger(limit = 50) {
+  const res = await fetch(`${API_BASE_URL}/api/v1/aegis/ledger?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch Aegis ledger');
+  return res.json();
+}
+
+export async function resetAegisState() {
+  const res = await fetch(`${API_BASE_URL}/api/v1/aegis/reset`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Failed to reset Aegis state');
+  return res.json();
+}
+

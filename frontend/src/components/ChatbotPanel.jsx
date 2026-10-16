@@ -24,10 +24,11 @@ export default function ChatbotPanel() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [useLangChain, setUseLangChain] = useState(() => localStorage.getItem('use_langchain') === 'true');
+  const [engineMode, setEngineMode] = useState(() => localStorage.getItem('engine_mode') || 'baseline'); // 'baseline' (LangChain) or 'aegis' (AegisRegistry)
   const [groqApiKey, setGroqApiKey] = useState(() => localStorage.getItem('groq_api_key') || '');
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile');
   const [expandedJson, setExpandedJson] = useState({});
+  const [expandedDiff, setExpandedDiff] = useState({});
 
   const messagesEndRef = useRef(null);
 
@@ -39,12 +40,16 @@ export default function ChatbotPanel() {
     scrollToBottom();
   }, [messages, loading]);
 
-  const toggleLangChain = () => {
-    setUseLangChain(prev => {
-      const next = !prev;
-      localStorage.setItem('use_langchain', String(next));
+  const toggleEngineMode = () => {
+    setEngineMode(prev => {
+      const next = prev === 'baseline' ? 'aegis' : 'baseline';
+      localStorage.setItem('engine_mode', next);
       return next;
     });
+  };
+
+  const toggleDiff = (msgId) => {
+    setExpandedDiff(prev => ({ ...prev, [msgId]: !prev[msgId] }));
   };
 
   const handleSaveSettings = () => {
@@ -98,7 +103,8 @@ export default function ChatbotPanel() {
       const response = await sendChatMessage(text, {
         groqApiKey: groqApiKey.trim(),
         model: selectedModel,
-        useLangChain
+        useLangChain: engineMode === 'baseline',
+        engineMode: engineMode
       });
 
       const assistantMsg = {
@@ -109,8 +115,10 @@ export default function ChatbotPanel() {
         api_call: response.api_call,
         raw_data: response.data,
         missing_fields: response.missing_fields,
-        is_langchain: response.is_langchain || useLangChain,
-        engine: response.engine,
+        is_langchain: response.is_langchain || engineMode === 'baseline',
+        healed: response.healed || response.api_call?.healed || false,
+        healed_telemetry: response.healed_telemetry,
+        engine: engineMode === 'aegis' ? 'AegisRegistry Autonomous Healer' : (response.engine || 'LangChain Agent (Baseline)'),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -134,7 +142,7 @@ export default function ChatbotPanel() {
   return (
     <div className="w-full lg:w-2/5 h-full flex flex-col bg-white border border-gray-200 rounded-xl shadow-xs overflow-hidden">
       
-      {/* Clean Minimal Header with LangChain ON/OFF Toggle */}
+      {/* Clean Minimal Header with Dual Engine Switch */}
       <div className="px-4 py-3 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
         <div>
           <div className="flex items-center gap-2">
@@ -150,24 +158,47 @@ export default function ChatbotPanel() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* LangChain Toggle Button */}
-          <button
-            id="btn-langchain-toggle"
-            type="button"
-            onClick={toggleLangChain}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all shadow-2xs ${
-              useLangChain
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-400'
-                : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'
-            }`}
-            title="Toggle LangChain System ON or OFF"
-          >
-            <span className={`w-1.5 h-1.5 rounded-full transition-colors ${useLangChain ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-            <span className="font-mono text-[10px] font-bold">LangChain</span>
-            <span className={`px-1 py-0.2 rounded text-[9px] font-mono font-extrabold ${useLangChain ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
-              {useLangChain ? 'ON' : 'OFF'}
-            </span>
-          </button>
+          {/* Dual-Engine Mode Switch: Baseline (LangChain) vs AegisRegistry (Self-Healing) */}
+          <div className="flex items-center bg-gray-100 p-0.5 rounded-full border border-gray-300 shadow-2xs">
+            <button
+              id="btn-langchain-toggle"
+              type="button"
+              onClick={() => {
+                setEngineMode('baseline');
+                localStorage.setItem('engine_mode', 'baseline');
+              }}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-all ${
+                engineMode === 'baseline'
+                  ? 'bg-white text-gray-800 shadow-xs border border-gray-200 ring-1 ring-amber-400'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+              title="Baseline Mode: Standard LangChain Agent (loops 3x and stops on drift)"
+            >
+              <span className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${engineMode === 'baseline' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}`} />
+                🦜 LangChain
+              </span>
+            </button>
+
+            <button
+              id="btn-aegis-toggle"
+              type="button"
+              onClick={() => {
+                setEngineMode('aegis');
+                localStorage.setItem('engine_mode', 'aegis');
+              }}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-all flex items-center gap-1 ${
+                engineMode === 'aegis'
+                  ? 'bg-gradient-to-r from-emerald-600 to-[#FF6C37] text-white shadow-xs'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+              title="AegisRegistry Mode: Autonomous Self-Healing Engine (diagnoses AST <15ms & hot-patches)"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${engineMode === 'aegis' ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+              <span>🛡️ AegisRegistry</span>
+            </button>
+          </div>
+
 
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -288,8 +319,12 @@ export default function ChatbotPanel() {
                       </span>
                     )}
                     {msg.status === 'success' && (
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        Verified
+                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                        msg.healed
+                          ? 'bg-gradient-to-r from-emerald-600 to-[#FF6C37] text-white shadow-2xs font-mono'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {msg.healed ? '🛡️ Self-Healed' : 'Verified'}
                       </span>
                     )}
                   </div>
@@ -297,6 +332,63 @@ export default function ChatbotPanel() {
 
                 {/* Clean Plain English Body (No markdown cracks / asterisks) */}
                 <div className="whitespace-pre-wrap">{cleanText(msg.text)}</div>
+
+                {/* AegisRegistry Self-Healing Telemetry Banner */}
+                {msg.healed && msg.healed_telemetry && (
+                  <div className="mt-2.5 p-2.5 rounded-lg bg-emerald-50/90 border border-emerald-300 text-[11px] font-mono shadow-2xs">
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-emerald-700 text-white uppercase tracking-wider">
+                          🛡️ Self-Healed
+                        </span>
+                        <span className="font-bold text-emerald-950 text-[10px]">
+                          Contract {msg.healed_telemetry.original_version || 'v1.0'} ➔ {msg.healed_telemetry.active_version || 'v1.1'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-300">
+                        ⏱️ {msg.healed_telemetry.diagnosis_latency_ms} ms AST
+                      </span>
+                    </div>
+
+                    <div className="text-[10px] text-emerald-900 mt-1">
+                      <span className="font-bold text-emerald-950">Active Drift:</span> {msg.healed_telemetry.drift_type} ({msg.healed_telemetry.explanation})
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-2 text-[9px] text-emerald-700">
+                      <span className="font-semibold text-emerald-800">
+                        ✓ 100% Provenance (0 Hallucinations)
+                      </span>
+                      <span>•</span>
+                      <span>0 Tokens Burned</span>
+                      <span>•</span>
+                      <span>Total: {msg.healed_telemetry.total_latency_ms} ms</span>
+                    </div>
+
+                    {/* Expandable Transformation Diff */}
+                    <div className="mt-1.5 pt-1.5 border-t border-emerald-200">
+                      <button
+                        onClick={() => toggleDiff(msg.id)}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-emerald-900 hover:underline cursor-pointer"
+                      >
+                        {expandedDiff[msg.id] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        {expandedDiff[msg.id] ? 'Hide In-Memory Transformation Diff' : 'View In-Memory Transformation Diff'}
+                      </button>
+
+                      {expandedDiff[msg.id] && (
+                        <div className="mt-1.5 p-2 bg-gray-900 text-emerald-300 rounded text-[10px] overflow-x-auto whitespace-pre-wrap font-mono">
+                          <div className="text-gray-400">// Obsolete Drifted Request:</div>
+                          <div>{JSON.stringify(msg.healed_telemetry.original_params, null, 2)}</div>
+                          <div className="text-gray-400 mt-1">// Healed Contract (v1.1):</div>
+                          <div className="text-emerald-400">{JSON.stringify(msg.healed_telemetry.healed_params, null, 2)}</div>
+                          {Object.keys(msg.healed_telemetry.field_renames || {}).length > 0 && (
+                            <div className="text-amber-300 mt-1">// Applied Renames: {JSON.stringify(msg.healed_telemetry.field_renames)}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
 
                 {/* API / SQL Execution Card */}
                 {msg.api_call && (

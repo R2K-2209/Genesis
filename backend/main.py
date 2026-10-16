@@ -156,6 +156,23 @@ def reset_drift_state_endpoint():
     clear_all_drifts()
     return {"status": "ok", "drifts": {}}
 
+
+@app.get("/api/v1/aegis/ledger")
+def get_aegis_ledger_endpoint(limit: int = 50):
+    from backend.services.aegis_ledger import aegis_request_ledger
+    records = aegis_request_ledger.get_recent_records(limit=limit)
+    return {"status": "ok", "count": len(records), "records": records}
+
+
+@app.post("/api/v1/aegis/reset")
+def reset_aegis_mvcc_endpoint():
+    from backend.services.aegis_mvcc import aegis_mvcc_registry
+    from backend.services.aegis_ledger import aegis_request_ledger
+    aegis_mvcc_registry.reset_all()
+    aegis_request_ledger.clear_ledger()
+    return {"status": "ok", "message": "AegisRegistry MVCC snapshots and request ledger reset to clean baseline v1.0."}
+
+
 # Active schema mutation state for testing API drift
 MUTATION_STATE = {
     "scenario": "clean",  # options: 'clean', 'rename', 'type_cast', 'nesting', 'header', 'compound'

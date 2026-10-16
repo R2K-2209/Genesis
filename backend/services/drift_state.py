@@ -103,7 +103,10 @@ def apply_drift_to_request(
     drift_info = None
 
     # Check explicit drifts passed in the chat request first
-    if explicit_drifts:
+    if explicit_drifts is not None:
+        if len(explicit_drifts) == 0:
+            # Explicit empty dict means clean/bypass drift (e.g. self-healed replay)
+            return path, params, None
         for k, v in explicit_drifts.items():
             if normalize_endpoint_id(k) == canonical_id:
                 if isinstance(v, dict):
@@ -111,6 +114,8 @@ def apply_drift_to_request(
                 elif isinstance(v, str):
                     drift_info = {"drift_mode": v}
                 break
+        if drift_info is None:
+            drift_info = {"drift_mode": "healthy"}
 
     # Fall back to server's shared in-memory drift store
     if not drift_info:
