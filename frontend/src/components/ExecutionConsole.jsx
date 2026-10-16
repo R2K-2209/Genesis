@@ -82,7 +82,10 @@ export default function ExecutionConsole({
 
     logStreamTimerRef.current = setInterval(() => {
       if (currentIndex < fullLogs.length) {
-        setStreamedLogs(prev => [...prev, fullLogs[currentIndex]]);
+        const nextLog = fullLogs[currentIndex];
+        if (nextLog) {
+          setStreamedLogs(prev => [...prev, nextLog]);
+        }
         currentIndex += 1;
       } else {
         clearInterval(logStreamTimerRef.current);
@@ -120,7 +123,8 @@ export default function ExecutionConsole({
   const handleCopyLogs = () => {
     if (!streamedLogs.length) return;
     const text = streamedLogs
-      .map(l => `[${l.elapsed_ms !== undefined ? `${l.elapsed_ms}ms` : (l.time || '0.0ms')}] [${l.tag || 'LOG'}] ${l.message || l.text || ''}`)
+      .filter(Boolean)
+      .map(l => `[${l?.elapsed_ms !== undefined ? `${l.elapsed_ms}ms` : (l?.time || '0.0ms')}] [${l?.tag || 'LOG'}] ${l?.message || l?.text || ''}`)
       .join('\n');
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -549,22 +553,22 @@ export default function ExecutionConsole({
                   Initializing kernel execution logger...
                 </div>
               ) : (
-                streamedLogs.map((log, idx) => (
+                streamedLogs.filter(Boolean).map((log, idx) => (
                   <div key={idx} className="flex items-start gap-2 hover:bg-white/5 px-1 py-0.5 rounded transition-colors">
                     <span className="text-gray-500 shrink-0 text-[11px] select-none">
-                      [{log.elapsed_ms !== undefined ? `${log.elapsed_ms}ms` : (log.time || '0.0ms')}]
+                      [{log?.elapsed_ms !== undefined ? `${log.elapsed_ms}ms` : (log?.time || '0.0ms')}]
                     </span>
-                    <span className={`shrink-0 text-[11px] px-1 rounded bg-white/5 ${getTagColor(log.tag, log.level)}`}>
-                      [{log.tag || 'LOG'}]
+                    <span className={`shrink-0 text-[11px] px-1 rounded bg-white/5 ${getTagColor(log?.tag, log?.level)}`}>
+                      [{log?.tag || 'LOG'}]
                     </span>
                     <span className={`flex-1 break-all text-[11.5px] ${
-                      log.level === 'error' ? 'text-red-400 font-medium' :
-                      log.level === 'warn' ? 'text-amber-300 font-medium' :
-                      log.level === 'heal' ? 'text-[#FF6C37] font-semibold' :
-                      log.level === 'success' ? 'text-emerald-300' :
+                      log?.level === 'error' ? 'text-red-400 font-medium' :
+                      log?.level === 'warn' ? 'text-amber-300 font-medium' :
+                      log?.level === 'heal' ? 'text-[#FF6C37] font-semibold' :
+                      log?.level === 'success' ? 'text-emerald-300' :
                       'text-gray-200'
                     }`}>
-                      {log.message || log.text || ''}
+                      {log?.message || log?.text || ''}
                     </span>
                   </div>
                 ))

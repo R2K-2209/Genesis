@@ -608,3 +608,78 @@ async def mock_students_endpoint(request: Request):
         "scenario_matched": scenario,
         "data": profile
     }
+
+
+# =========================================================================
+# AEGIS ENTERPRISE GOVERNANCE & ARCHITECTURE LAYER ENDPOINTS (LAYERS 6, 7, 8, 9)
+# =========================================================================
+
+from backend.services.aegis_ledger import aegis_request_ledger
+from backend.services.aegis_mvcc import aegis_mvcc_registry
+from backend.services.aegis_gitops import aegis_gitops_daemon
+from backend.services.aegis_time_machine import aegis_time_machine
+
+
+@app.get("/api/aegis/ledger")
+async def get_aegis_ledger(limit: int = 50, endpoint: Optional[str] = None, drift_type: Optional[str] = None):
+    """Layer 8: Query the immutable request ledger with filter support."""
+    records = aegis_request_ledger.get_recent_records(
+        limit=limit,
+        endpoint_filter=endpoint,
+        drift_filter=drift_type
+    )
+    return {"status": "success", "total": len(records), "records": records}
+
+
+@app.post("/api/aegis/undo/{record_id}")
+async def execute_1click_undo(record_id: str):
+    """Layer 8: Execute 1-Click Compensating SQL rollback bounded to request_trace_id."""
+    success, message = aegis_request_ledger.execute_1click_undo(record_id)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"status": "success", "message": message, "record_id": record_id}
+
+
+@app.get("/api/aegis/pull-requests")
+async def get_aegis_pull_requests():
+    """Layer 9: Retrieve auto-generated GitHub Pull Requests from GitOps Daemon."""
+    prs = aegis_gitops_daemon.get_all_pull_requests()
+    return {"status": "success", "total": len(prs), "pull_requests": [vars(p) for p in prs]}
+
+
+@app.get("/api/aegis/mvcc/snapshots")
+async def get_mvcc_snapshots():
+    """Layer 6: View all active in-memory MVCC schema versions and fingerprints."""
+    snapshots = {
+        ep: {
+            "version": s.version,
+            "tool_name": s.tool_name,
+            "fingerprint": s.fingerprint,
+            "created_at": s.created_at,
+            "applied_count": s.applied_count,
+            "has_transform": s.transform_lambda is not None
+        }
+        for ep, s in aegis_mvcc_registry._active_snapshots.items()
+    }
+    return {"status": "success", "snapshots": snapshots}
+
+
+@app.post("/api/aegis/mvcc/reset")
+async def reset_mvcc_snapshots():
+    """Layer 6: Reset in-memory MVCC snapshots back to clean v1.0 baseline."""
+    aegis_mvcc_registry.reset_all()
+    return {"status": "success", "message": "All MVCC snapshots reset to v1.0 baseline"}
+
+
+@app.get("/api/aegis/time-machine/fixtures")
+async def get_time_machine_fixtures(endpoint: Optional[str] = None):
+    """Layer 7: Query historical sandbox fixtures stored in ring buffers."""
+    if endpoint:
+        fixtures = aegis_time_machine.get_fixtures(endpoint)
+        return {"status": "success", "endpoint": endpoint, "fixtures": [vars(f) for f in fixtures]}
+    all_fixtures = {
+        ep: [vars(f) for f in buf]
+        for ep, buf in aegis_time_machine._fixture_buffers.items()
+    }
+    return {"status": "success", "fixtures": all_fixtures}
+

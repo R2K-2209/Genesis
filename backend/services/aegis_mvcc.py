@@ -1,48 +1,72 @@
 """
 AegisRegistry MVCC Registry & In-Memory Hot-Patching Layer (Layer 6)
-Compiles diagnosed SchemaDiff objects into native Python transformation callables.
-Maintains versioned in-memory SchemaSnapshots (v1.0 -> v1.1) with atomic pointer swapping
-for thread-safe, sub-millisecond execution (<0.1ms) on recurring requests.
+Implements:
+1. Immutable SchemaSnapshot models with embedded transform lambdas and cryptographic fingerprints
+2. Atomic Pointer Swapping (MVCC) without mutex locks on read paths
+3. Dynamic Lambda compilation for 0.0001s (<0.1ms) hot-path transformation execution
+4. Full version tracking (v1.0 -> v1.1 -> v1.2) with parent pointer ancestry
 """
 
 import time
 import copy
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Any, Optional, Callable, Tuple
+from typing import Dict, Any, Optional, Callable, Tuple, List
 from backend.services.aegis_diagnoser import SchemaDiff
 
 
 @dataclass(frozen=True)
 class SchemaSnapshot:
-    """Immutable state model for an API endpoint contract version."""
-    version: str
-    endpoint: str
-    diff: Optional[SchemaDiff] = None
-    parent_version: Optional[str] = None
+    """
+    Immutable state model for an API endpoint contract version (Layer 6).
+    Enforces atomic pointer swapping and thread-safe lock-free reads.
+    """
+    version: str                                  # e.g., "v1.1"
+    endpoint: str                                 # e.g., "/api/v1/students/{id}/degree-audit"
+    tool_name: str = ""                           # e.g., "complex-graduation-audit"
+    diff: Optional[SchemaDiff] = None             # Diagnosed AST diff
+    json_schema: Dict[str, Any] = field(default_factory=dict) # JSON Schema definition
+    transform_lambda: Optional[Callable] = None   # Precompiled Python transformation callable
+    parent_version: Optional[str] = None          # e.g., "v1.0"
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     applied_count: int = 0
+    fingerprint: str = ""                         # Cryptographic SHA-256 fingerprint
 
 
 class AegisMVCCRegistry:
     """
-    Manages in-memory hot-patch snapshots and compiled transformation lambdas.
+    Manages in-memory hot-patch snapshots and performs atomic pointer swapping (MVCC).
+    Guarantees thread-safe, lock-free reads across concurrent requests.
     """
 
     def __init__(self):
-        # endpoint -> active SchemaSnapshot
-        self._snapshots: Dict[str, SchemaSnapshot] = {}
-        # endpoint -> compiled transform callable: (params, body, headers) -> (healed_params, healed_body, healed_headers, redirected_path)
-        self._compiled_transforms: Dict[str, Callable] = {}
+        # endpoint/tool_name -> active SchemaSnapshot reference (atomically swapped)
+        self._active_snapshots: Dict[str, SchemaSnapshot] = {}
+        # Historical snapshot ledger: endpoint -> List[SchemaSnapshot]
+        self._snapshot_history: Dict[str, List[SchemaSnapshot]] = {}
 
     def get_snapshot(self, endpoint: str) -> SchemaSnapshot:
-        if endpoint not in self._snapshots:
-            self._snapshots[endpoint] = SchemaSnapshot(version="v1.0", endpoint=endpoint)
-        return self._snapshots[endpoint]
+        """
+        Lock-free read: returns the current immutable SchemaSnapshot reference.
+        Any running coroutine keeps this exact reference until completion,
+        even if another coroutine swaps the pointer concurrently.
+        """
+        snapshot = self._active_snapshots.get(endpoint)
+        if snapshot is None:
+            snapshot = SchemaSnapshot(
+                version="v1.0",
+                endpoint=endpoint,
+                tool_name=endpoint,
+                fingerprint=self._compute_fingerprint("v1.0", endpoint, None)
+            )
+            self._active_snapshots[endpoint] = snapshot
+        return snapshot
 
     def has_hot_patch(self, endpoint: str) -> bool:
-        snapshot = self._snapshots.get(endpoint)
-        return snapshot is not None and snapshot.version != "v1.0" and endpoint in self._compiled_transforms
+        snapshot = self._active_snapshots.get(endpoint)
+        return snapshot is not None and snapshot.version != "v1.0" and snapshot.transform_lambda is not None
 
     def apply_hot_patch(
         self,
@@ -55,24 +79,27 @@ class AegisMVCCRegistry:
         Executes precompiled hot-patch transformation in memory (<0.1ms).
         Returns: (healed_params, healed_body, healed_headers, redirected_path)
         """
-        if endpoint in self._compiled_transforms:
-            transform_fn = self._compiled_transforms[endpoint]
-            return transform_fn(params, body, headers)
+        snapshot = self.get_snapshot(endpoint)
+        if snapshot.transform_lambda is not None:
+            return snapshot.transform_lambda(params, body, headers)
         return params, body, headers, None
 
     def compile_and_register_patch(
         self,
         endpoint: str,
-        diff: SchemaDiff
+        diff: SchemaDiff,
+        tool_name: Optional[str] = None
     ) -> SchemaSnapshot:
         """
         Compiles a diagnosed SchemaDiff into an in-memory transformation lambda
-        and performs an atomic pointer swap to v1.1.
+        and performs an ATOMIC POINTER SWAP to the new SchemaSnapshot.
+        Tool definitions in Python are never mutated in place.
         """
         current_snapshot = self.get_snapshot(endpoint)
         next_ver = self._increment_version(current_snapshot.version)
+        name = tool_name or current_snapshot.tool_name or endpoint
 
-        # Build dynamic transformer callable
+        # Build dynamic transformer callable: (params, body, headers) -> (healed_params, healed_body, healed_headers, redirected_path)
         def compiled_transformer(
             p: Dict[str, Any],
             b: Optional[Dict[str, Any]],
@@ -126,39 +153,72 @@ class AegisMVCCRegistry:
 
             return healed_params, healed_body, healed_headers, redirected_path
 
-        # Atomic memory swap
+        fingerprint = self._compute_fingerprint(next_ver, endpoint, diff)
+
+        # Create new immutable snapshot
         new_snapshot = SchemaSnapshot(
             version=next_ver,
             endpoint=endpoint,
+            tool_name=name,
             diff=diff,
+            json_schema={
+                "endpoint": endpoint,
+                "version": next_ver,
+                "renames": diff.field_renames,
+                "type_casts": diff.type_casts,
+                "headers": diff.injected_headers
+            },
+            transform_lambda=compiled_transformer,
             parent_version=current_snapshot.version,
-            applied_count=1
+            applied_count=current_snapshot.applied_count + 1,
+            fingerprint=fingerprint
         )
-        self._compiled_transforms[endpoint] = compiled_transformer
-        self._snapshots[endpoint] = new_snapshot
+
+        # Record history
+        if endpoint not in self._snapshot_history:
+            self._snapshot_history[endpoint] = [current_snapshot]
+        self._snapshot_history[endpoint].append(new_snapshot)
+
+        # ATOMIC POINTER SWAP (MVCC):
+        # Replace the pointer in the dictionary. Any ongoing read coroutines referencing
+        # current_snapshot will safely complete on current_snapshot without locking.
+        # All subsequent calls immediately receive new_snapshot.
+        self._active_snapshots[endpoint] = new_snapshot
         return new_snapshot
+
+    def get_history(self, endpoint: str) -> List[SchemaSnapshot]:
+        """Returns the immutable version history of an endpoint."""
+        return list(self._snapshot_history.get(endpoint, [self.get_snapshot(endpoint)]))
 
     def reset_endpoint(self, endpoint: str) -> None:
         """Resets an endpoint back to clean v1.0 baseline."""
-        self._snapshots[endpoint] = SchemaSnapshot(version="v1.0", endpoint=endpoint)
-        if endpoint in self._compiled_transforms:
-            del self._compiled_transforms[endpoint]
+        baseline = SchemaSnapshot(
+            version="v1.0",
+            endpoint=endpoint,
+            tool_name=endpoint,
+            fingerprint=self._compute_fingerprint("v1.0", endpoint, None)
+        )
+        self._active_snapshots[endpoint] = baseline
 
     def reset_all(self) -> None:
         """Resets all snapshots back to clean baseline."""
-        self._snapshots.clear()
-        self._compiled_transforms.clear()
+        self._active_snapshots.clear()
+        self._snapshot_history.clear()
 
-    def _increment_version(self, current: str) -> str:
+    def _increment_version(self, current_ver: str) -> str:
         try:
-            if current.startswith("v"):
-                parts = current[1:].split(".")
+            if current_ver.startswith("v"):
+                parts = current_ver[1:].split(".")
                 major = int(parts[0])
                 minor = int(parts[1]) if len(parts) > 1 else 0
                 return f"v{major}.{minor + 1}"
         except Exception:
             pass
         return "v1.1"
+
+    def _compute_fingerprint(self, version: str, endpoint: str, diff: Optional[SchemaDiff]) -> str:
+        content = f"{version}:{endpoint}:{diff.field_renames if diff else ''}:{diff.type_casts if diff else ''}"
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
 # Global singleton instance

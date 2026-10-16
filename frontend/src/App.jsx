@@ -26,6 +26,8 @@ import ApiExplorerModal from './components/ApiExplorerModal';
 import ChatbotPanel from './components/ChatbotPanel';
 import ExecutionConsole from './components/ExecutionConsole';
 import { fetchHealth, fetchDatabaseOverview, fetchApiCatalog } from './services/api';
+import aegisLogo from './assets/aegis_logo.png';
+import aegisBrandText from './assets/aegis_brand_text.png';
 
 export default function App() {
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
@@ -134,12 +136,19 @@ export default function App() {
       {/* Signature Orange Top Navigation Bar */}
       <header className="h-14 shrink-0 bg-[#FF6C37] border-b border-[#E85B27] px-6 flex items-center justify-between shadow-xs z-30">
         
-        {/* Clean Professional Title (No Logo, No Emoji) */}
-        <div className="flex items-baseline gap-3">
-          <span className="text-lg font-bold text-white tracking-tight">
-            AegisRegistry
-          </span>
-          <span className="hidden md:inline-block text-xs font-medium text-white/90 tracking-wide">
+        {/* Brand & Logo: Logo in White Circle + Name (Black 'Aegius' + White 'Registry') */}
+        <div className="flex items-center gap-3">
+          {/* Logo in White Circle */}
+          <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center p-1.5 shadow-xs shrink-0 overflow-hidden">
+            <img src={aegisLogo} alt="Aegis Logo" className="w-full h-full object-contain" />
+          </div>
+
+          {/* Name: Transparent Background, Black 'Aegius' + White 'Registry' */}
+          <div className="flex items-center">
+            <img src={aegisBrandText} alt="AegiusRegistry" className="h-7 w-auto object-contain select-none" />
+          </div>
+
+          <span className="hidden xl:inline-block text-xs font-medium text-white/90 tracking-wide border-l border-white/25 pl-3">
             Autonomous Self-Healing Tool Interface Under API Schema Drift
           </span>
         </div>
