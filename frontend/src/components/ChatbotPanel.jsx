@@ -158,8 +158,8 @@ export default function ChatbotPanel() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Small Toggle Switch with Status Outside Button */}
-          <div className="flex items-center gap-1.5 bg-gray-50/90 px-2 py-1 rounded-full border border-gray-200 shadow-2xs">
+          {/* Postman Standard Toggle Switch with External Status Labels */}
+          <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-md border border-gray-200 shadow-2xs">
             {/* Left Status Label: LangChain */}
             <button
               id="label-langchain"
@@ -168,33 +168,32 @@ export default function ChatbotPanel() {
                 setEngineMode('baseline');
                 localStorage.setItem('engine_mode', 'baseline');
               }}
-              className={`text-[10px] font-mono transition-all cursor-pointer select-none flex items-center gap-1 ${
+              className={`text-xs font-sans transition-colors cursor-pointer select-none ${
                 engineMode === 'baseline'
-                  ? 'font-bold text-gray-900'
-                  : 'font-normal text-gray-400 hover:text-gray-600'
+                  ? 'font-semibold text-gray-900'
+                  : 'font-normal text-gray-500 hover:text-gray-800'
               }`}
-              title="Baseline Mode: Standard LangChain Agent (loops and fails on drift)"
+              title="Baseline Mode: Standard LangChain Agent"
             >
-              <span className={`w-1.5 h-1.5 rounded-full transition-colors ${engineMode === 'baseline' ? 'bg-amber-500' : 'bg-transparent'}`} />
-              <span>LangChain</span>
+              LangChain
             </button>
 
-            {/* Small Toggle Switch Button */}
+            {/* Small Toggle Switch Button - Postman Orange Only */}
             <button
               id="btn-langchain-toggle"
               type="button"
               role="switch"
               aria-checked={engineMode === 'aegis'}
               onClick={toggleEngineMode}
-              className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-gray-300 transition-colors duration-200 ease-in-out focus:outline-none ${
+              className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-150 ease-in-out focus:outline-none ${
                 engineMode === 'aegis'
-                  ? 'bg-gradient-to-r from-emerald-500 to-[#FF6C37] border-transparent'
-                  : 'bg-gray-200 hover:bg-gray-300'
+                  ? 'bg-[#FF6C37]'
+                  : 'bg-gray-300 hover:bg-gray-400'
               }`}
               title={`Switch Engine: currently ${engineMode === 'aegis' ? 'AegisRegistry' : 'LangChain'}`}
             >
               <span
-                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out mt-[1px] ml-[1px] ${
+                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
                   engineMode === 'aegis' ? 'translate-x-3' : 'translate-x-0'
                 }`}
               />
@@ -208,15 +207,14 @@ export default function ChatbotPanel() {
                 setEngineMode('aegis');
                 localStorage.setItem('engine_mode', 'aegis');
               }}
-              className={`text-[10px] font-mono transition-all cursor-pointer select-none flex items-center gap-1 ${
+              className={`text-xs font-sans transition-colors cursor-pointer select-none ${
                 engineMode === 'aegis'
-                  ? 'font-bold text-[#FF6C37]'
-                  : 'font-normal text-gray-400 hover:text-gray-600'
+                  ? 'font-semibold text-[#FF6C37]'
+                  : 'font-normal text-gray-500 hover:text-gray-800'
               }`}
-              title="AegisRegistry Mode: Autonomous Self-Healing Engine (diagnoses AST & hot-patches)"
+              title="AegisRegistry Mode: Autonomous Self-Healing Engine"
             >
-              <span>AegisRegistry</span>
-              <span className={`w-1.5 h-1.5 rounded-full transition-colors ${engineMode === 'aegis' ? 'bg-emerald-500 animate-pulse' : 'bg-transparent'}`} />
+              AegisRegistry
             </button>
           </div>
 
