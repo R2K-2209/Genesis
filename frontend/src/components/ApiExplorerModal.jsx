@@ -15,9 +15,443 @@ import {
   RefreshCw,
   RotateCcw,
   Zap,
-  Table
+  Table,
+  Play,
+  Check,
+  Terminal,
+  MessageSquare,
+  ChevronRight
 } from 'lucide-react';
 import { fetchApiCatalog, executeApiEndpoint, updateDriftState } from '../services/api';
+
+const DEFAULT_EXAMPLES = {
+  'simple-students': [
+    {
+      id: 'ex-students-1',
+      label: 'Active Enrolled Students',
+      badge: 'Enrolled',
+      description: 'Retrieves currently enrolled active students with limit 5',
+      params: { status: 'enrolled', page: 1, limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/list?status=enrolled&limit=5"',
+      prompt: 'Show me a list of active enrolled students'
+    },
+    {
+      id: 'ex-students-2',
+      label: 'Graduated Alumni Roster',
+      badge: 'Graduated',
+      description: 'Lists recently graduated alumni records from students table',
+      params: { status: 'graduated', page: 1, limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/list?status=graduated&limit=5"',
+      prompt: 'List recently graduated university alumni'
+    },
+    {
+      id: 'ex-students-3',
+      label: 'Withdrawn / Inactive Records',
+      badge: 'Withdrawn',
+      description: 'Inspects withdrawn or suspended student accounts',
+      params: { status: 'withdrawn', page: 1, limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/list?status=withdrawn&limit=5"',
+      prompt: 'Find withdrawn student accounts'
+    }
+  ],
+  'simple-courses': [
+    {
+      id: 'ex-courses-1',
+      label: 'Calculus Courses (1+ Credits)',
+      badge: 'Calculus',
+      description: 'Search for university calculus courses offering at least 1 credit',
+      params: { search: 'Calculus', min_credits: 1, limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/catalog?search=Calculus&min_credits=1&limit=5"',
+      prompt: 'Search for Calculus courses with at least 1 credit'
+    },
+    {
+      id: 'ex-courses-2',
+      label: 'Advanced Statistics (3+ Credits)',
+      badge: 'Statistics',
+      description: 'Query advanced 3+ credit courses in statistics and quantitative methods',
+      params: { search: 'Statistics', min_credits: 3, limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/catalog?search=Statistics&min_credits=3&limit=5"',
+      prompt: 'Find 3-credit statistics courses in the catalog'
+    },
+    {
+      id: 'ex-courses-3',
+      label: 'Ethics & Seminar Classes',
+      badge: 'Ethics',
+      description: 'Filter courses in professional ethics, bioethics, and humanities',
+      params: { search: 'Ethics', min_credits: 1, limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/catalog?search=Ethics&min_credits=1&limit=5"',
+      prompt: 'Search for ethics courses in the catalog'
+    }
+  ],
+  'simple-books': [
+    {
+      id: 'ex-books-1',
+      label: 'Physics Library Holdings',
+      badge: 'Physics',
+      description: 'Searches campus library catalog for physics and sciences literature',
+      params: { query: 'Physics', limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/books/search?query=Physics&limit=5"',
+      prompt: 'Search for Physics books in the library'
+    },
+    {
+      id: 'ex-books-2',
+      label: 'History & World Studies',
+      badge: 'History',
+      description: 'Finds world history and social studies textbooks in inventory',
+      params: { query: 'History', limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/books/search?query=History&limit=5"',
+      prompt: 'Find History titles in the university library'
+    },
+    {
+      id: 'ex-books-3',
+      label: 'Biology & Life Sciences',
+      badge: 'Biology',
+      description: 'Locates biological sciences and medicine publications',
+      params: { query: 'Biology', limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/books/search?query=Biology&limit=5"',
+      prompt: 'Search library books on Biology'
+    }
+  ],
+  'simple-departments': [
+    {
+      id: 'ex-depts-1',
+      label: 'All Academic Departments',
+      badge: 'All Depts',
+      description: 'Full directory of university colleges, faculties, and codes',
+      params: {},
+      command: 'curl -X GET "http://localhost:8000/api/v1/departments/list"',
+      prompt: 'List all academic departments and their codes'
+    },
+    {
+      id: 'ex-depts-2',
+      label: 'Faculty Headcount Check',
+      badge: 'Faculties',
+      description: 'Overview of academic divisions currently active on campus',
+      params: {},
+      command: 'curl -X GET "http://localhost:8000/api/v1/departments/list"',
+      prompt: 'What faculties and departments does the university have?'
+    }
+  ],
+  'simple-clubs': [
+    {
+      id: 'ex-clubs-1',
+      label: 'Top 5 Student Clubs',
+      badge: 'Top 5',
+      description: 'Lists top student clubs and registered student organizations',
+      params: { limit: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/clubs/directory?limit=5"',
+      prompt: 'List registered student clubs and organizations'
+    },
+    {
+      id: 'ex-clubs-2',
+      label: 'Campus Societies (15 Clubs)',
+      badge: '15 Clubs',
+      description: 'Expanded browse of academic, cultural, and sports clubs',
+      params: { limit: 15 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/clubs/directory?limit=15"',
+      prompt: 'Browse 15 student clubs on campus'
+    },
+    {
+      id: 'ex-clubs-3',
+      label: 'Full Clubs Directory (25 Clubs)',
+      badge: '25 Clubs',
+      description: 'Comprehensive list of university student life societies',
+      params: { limit: 25 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/clubs/directory?limit=25"',
+      prompt: 'What student organizations can students join?'
+    }
+  ],
+  'medium-student-summary': [
+    {
+      id: 'ex-bio-1',
+      label: 'Student #1 Academic Bio & Advisor',
+      badge: 'Student 1',
+      description: 'Inspects advisor assignment and degree program for Student #1',
+      params: { student_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/1/academic-summary"',
+      prompt: 'Who is the academic advisor for student 1?'
+    },
+    {
+      id: 'ex-bio-2',
+      label: 'Student #4 Active Enrolled Bio',
+      badge: 'Student 4',
+      description: 'Checks department, contact info, and program for Student #4',
+      params: { student_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/4/academic-summary"',
+      prompt: 'Get academic summary and program details for student 4'
+    },
+    {
+      id: 'ex-bio-3',
+      label: 'Student #7 Faculty & Department',
+      badge: 'Student 7',
+      description: 'Audits faculty mentor rank and college department for Student #7',
+      params: { student_id: 7 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/7/academic-summary"',
+      prompt: 'Check department and advisor for student 7'
+    }
+  ],
+  'medium-syllabus': [
+    {
+      id: 'ex-syl-1',
+      label: 'Course #1: Calculus In Materials',
+      badge: 'Course 1',
+      description: 'Inspects required calculus textbooks, ISBNs, and authors for Course #1',
+      params: { course_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/1/syllabus-materials"',
+      prompt: 'What textbooks and materials are required for course 1?'
+    },
+    {
+      id: 'ex-syl-2',
+      label: 'Course #2: Ethics Seminar Reading',
+      badge: 'Course 2',
+      description: 'Pulls syllabus specifications and reading list for Course #2',
+      params: { course_id: 2 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/2/syllabus-materials"',
+      prompt: 'Show syllabus and reading list for course 2'
+    },
+    {
+      id: 'ex-syl-3',
+      label: 'Course #4: Statistics Software & Text',
+      badge: 'Course 4',
+      description: 'Retrieves instructional materials and textbooks for Course #4',
+      params: { course_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/4/syllabus-materials"',
+      prompt: 'Retrieve required course materials for course 4'
+    }
+  ],
+  'medium-student-finance': [
+    {
+      id: 'ex-fin-1',
+      label: 'Student #1 Invoices & Tuition Ledger',
+      badge: 'Student 1',
+      description: 'Audits tuition fees, itemized charges, and payment balance for Student #1',
+      params: { student_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/finance/student/1/ledger"',
+      prompt: 'What is the outstanding tuition balance for student 1?'
+    },
+    {
+      id: 'ex-fin-2',
+      label: 'Student #5 High Outstanding Balance',
+      badge: 'Student 5',
+      description: 'Examines large unpaid semester invoices and fees for Student #5',
+      params: { student_id: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/finance/student/5/ledger"',
+      prompt: 'Check billing history and unpaid fees for student 5'
+    },
+    {
+      id: 'ex-fin-3',
+      label: 'Student #7 Itemized Fee Breakdown',
+      badge: 'Student 7',
+      description: 'Full reconciliation of invoice line items and recorded payments for Student #7',
+      params: { student_id: 7 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/finance/student/7/ledger"',
+      prompt: 'Show financial ledger and payments for student 7'
+    }
+  ],
+  'medium-library-loans': [
+    {
+      id: 'ex-loan-1',
+      label: 'Card #1: Active Loans & Overdue Check',
+      badge: 'Card 1',
+      description: 'Audits current book circulation and return dates for Library Card #1',
+      params: { card_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/library/borrower/1/loans"',
+      prompt: 'Does library card 1 have any overdue books checked out?'
+    },
+    {
+      id: 'ex-loan-2',
+      label: 'Card #2: Circulation History & Due Dates',
+      badge: 'Card 2',
+      description: 'Inspects borrowed book titles and expiration date for Card #2',
+      params: { card_id: 2 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/library/borrower/2/loans"',
+      prompt: 'Check book loans and return status for card 2'
+    },
+    {
+      id: 'ex-loan-3',
+      label: 'Card #4: Borrower Loans in Good Standing',
+      badge: 'Card 4',
+      description: 'Retrieves active book loans and patron profile for Card #4',
+      params: { card_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/library/borrower/4/loans"',
+      prompt: 'View active book loans for borrower card 4'
+    }
+  ],
+  'medium-payment-record': [
+    {
+      id: 'ex-pay-1',
+      label: '$500 Card Payment on Invoice #4',
+      badge: '$500 Card',
+      description: 'Applies a $500 partial credit card payment against active Invoice #4',
+      params: { invoice_id: 4, amount: 500.0, payment_method: 'card' },
+      command: 'curl -X POST "http://localhost:8000/api/v1/finance/payments/record" -H "Content-Type: application/json" -d \'{"invoice_id": 4, "amount": 500.0, "payment_method": "card"}\'',
+      prompt: 'Pay $500 towards invoice 4 using card'
+    },
+    {
+      id: 'ex-pay-2',
+      label: '$1,200 Wire Transfer on Invoice #8',
+      badge: '$1,200 Wire',
+      description: 'Records an electronic bank wire transfer of $1,200 on Invoice #8',
+      params: { invoice_id: 8, amount: 1200.0, payment_method: 'transfer' },
+      command: 'curl -X POST "http://localhost:8000/api/v1/finance/payments/record" -H "Content-Type: application/json" -d \'{"invoice_id": 8, "amount": 1200.0, "payment_method": "transfer"}\'',
+      prompt: 'Record a $1200 bank transfer payment on invoice 8'
+    },
+    {
+      id: 'ex-pay-3',
+      label: '$250 Campus Cash on Invoice #34',
+      badge: '$250 Cash',
+      description: 'Processes a $250 cash receipt voucher against Invoice #34',
+      params: { invoice_id: 34, amount: 250.0, payment_method: 'cash' },
+      command: 'curl -X POST "http://localhost:8000/api/v1/finance/payments/record" -H "Content-Type: application/json" -d \'{"invoice_id": 34, "amount": 250.0, "payment_method": "cash"}\'',
+      prompt: 'Process a $250 cash payment against invoice 34'
+    }
+  ],
+  'complex-transcript': [
+    {
+      id: 'ex-tra-1',
+      label: 'Student #1: Graduated Honors Transcript',
+      badge: 'Student 1',
+      description: 'Computes weighted CGPA, grade distribution, and honors standing for Student #1',
+      params: { student_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/1/transcript-audit"',
+      prompt: 'Audit the full academic transcript and CGPA for student 1'
+    },
+    {
+      id: 'ex-tra-2',
+      label: 'Student #4: Multi-Semester Grade Audit',
+      badge: 'Student 4',
+      description: 'Evaluates semester-by-semester term GPAs and credits earned for Student #4',
+      params: { student_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/4/transcript-audit"',
+      prompt: 'Check grades, term GPAs, and credits earned for student 4'
+    },
+    {
+      id: 'ex-tra-3',
+      label: 'Student #7: Cumulative Standing & Credits',
+      badge: 'Student 7',
+      description: 'Audits cumulative degree completion percentage and standing for Student #7',
+      params: { student_id: 7 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/7/transcript-audit"',
+      prompt: 'Calculate cumulative GPA and academic honors for student 7'
+    }
+  ],
+  'complex-graduation-audit': [
+    {
+      id: 'ex-grad-1',
+      label: 'Student #1: Graduation Clearance (Passed)',
+      badge: 'Student 1',
+      description: 'Verifies all 4 degree graduation invariants for cleared graduate Student #1',
+      params: { student_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/1/graduation-eligibility"',
+      prompt: 'Is student 1 eligible to graduate this semester?'
+    },
+    {
+      id: 'ex-grad-2',
+      label: 'Student #4: Degree Invariant & Credit Check',
+      badge: 'Student 4',
+      description: 'Evaluates required credits and minimum 2.50 CGPA threshold for Student #4',
+      params: { student_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/4/graduation-eligibility"',
+      prompt: 'Run an autonomous degree graduation audit for student 4'
+    },
+    {
+      id: 'ex-grad-3',
+      label: 'Student #5: Financial Hold & Action Items',
+      badge: 'Student 5',
+      description: 'Identifies unpaid tuition hold preventing degree dispatch for Student #5',
+      params: { student_id: 5 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/students/5/graduation-eligibility"',
+      prompt: 'Check if student 5 has any graduation holds or missing credits'
+    }
+  ],
+  'complex-dept-workload': [
+    {
+      id: 'ex-dept-1',
+      label: 'University-Wide Operational Analytics',
+      badge: 'All Depts',
+      description: 'Ranks academic departments by total student enrollment across active sections',
+      params: {},
+      command: 'curl -X GET "http://localhost:8000/api/v1/analytics/department-workload"',
+      prompt: 'Which academic department has the highest student enrollment workload?'
+    },
+    {
+      id: 'ex-dept-2',
+      label: 'Faculty Ratios & Course Offerings',
+      badge: 'Faculty Ratios',
+      description: 'Calculates student-to-faculty ratios and active sections per department',
+      params: {},
+      command: 'curl -X GET "http://localhost:8000/api/v1/analytics/department-workload"',
+      prompt: 'Show faculty-to-student ratios across all departments'
+    },
+    {
+      id: 'ex-dept-3',
+      label: 'Faculty Salary & Load Analysis',
+      badge: 'Compensation',
+      description: 'Computes average faculty compensation against total enrollment density',
+      params: {},
+      command: 'curl -X GET "http://localhost:8000/api/v1/analytics/department-workload"',
+      prompt: 'Analyze active course sections and faculty salaries by department'
+    }
+  ],
+  'complex-scholarship-matcher': [
+    {
+      id: 'ex-sch-1',
+      label: 'Student #1: High-GPA Merit Matcher',
+      badge: 'Student 1',
+      description: "Matches Student #1's GPA against high-tier institutional scholarships",
+      params: { student_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/scholarships/eligibility-matcher/1"',
+      prompt: 'Match eligible merit and need-based scholarships for student 1'
+    },
+    {
+      id: 'ex-sch-2',
+      label: 'Student #4: Active Funding & Opportunities',
+      badge: 'Student 4',
+      description: 'Surveys active scholarship grants and qualified funding for Student #4',
+      params: { student_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/scholarships/eligibility-matcher/4"',
+      prompt: 'Find active awards and matching scholarships for student 4'
+    },
+    {
+      id: 'ex-sch-3',
+      label: 'Student #7: Need & GPA Evaluation',
+      badge: 'Student 7',
+      description: 'Determines qualification for tuition relief and endowed scholarships for Student #7',
+      params: { student_id: 7 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/scholarships/eligibility-matcher/7"',
+      prompt: 'Check scholarship funding eligibility for student 7'
+    }
+  ],
+  'complex-prerequisite-dag': [
+    {
+      id: 'ex-dag-1',
+      label: 'Course #1: Calculus In Prerequisite Chain',
+      badge: 'Course 1',
+      description: 'Traverses prerequisite requirements tree leading into Course #1',
+      params: { course_id: 1 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/1/prerequisite-chain"',
+      prompt: 'What is the prerequisite dependency DAG for course 1?'
+    },
+    {
+      id: 'ex-dag-2',
+      label: 'Course #4: Advanced Statistics DAG',
+      badge: 'Course 4',
+      description: 'Recursive dependency tree for advanced quantitative statistics Course #4',
+      params: { course_id: 4 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/4/prerequisite-chain"',
+      prompt: 'Traverse the prerequisite sequence needed before enrolling in course 4'
+    },
+    {
+      id: 'ex-dag-3',
+      label: 'Course #27: Applied Calculus Multi-Hop',
+      badge: 'Course 27',
+      description: 'Evaluates foundational math sequence required prior to Course #27',
+      params: { course_id: 27 },
+      command: 'curl -X GET "http://localhost:8000/api/v1/courses/27/prerequisite-chain"',
+      prompt: 'What courses must be completed before taking course 27?'
+    }
+  ]
+};
 
 export default function ApiExplorerModal({ isOpen, onClose, initialCatalog = null, targetEndpointId = null }) {
   const [catalog, setCatalog] = useState(initialCatalog);
@@ -32,6 +466,8 @@ export default function ApiExplorerModal({ isOpen, onClose, initialCatalog = nul
   const [executing, setExecuting] = useState(false);
   const [responseResult, setResponseResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedExampleId, setCopiedExampleId] = useState(null);
+  const [copiedPromptId, setCopiedPromptId] = useState(null);
 
   // Schema Drift / Broken API State
   const [activeDriftMode, setActiveDriftMode] = useState('healthy');
@@ -239,23 +675,86 @@ export default function ApiExplorerModal({ isOpen, onClose, initialCatalog = nul
     applyDriftMode('healthy');
   };
 
-  const handleSend = async () => {
+  const getEndpointExamples = (endpoint) => {
+    if (!endpoint) return [];
+    if (endpoint.examples && endpoint.examples.length > 0) return endpoint.examples;
+    return DEFAULT_EXAMPLES[endpoint.id] || [];
+  };
+
+  const handleRunExample = async (endpoint, example) => {
+    selectEndpoint(endpoint);
+    setActiveDriftMode('healthy');
+    setCustomPath(null);
+    const newParams = example.params ? { ...example.params } : {};
+    setParams(newParams);
+    let bodyData = null;
+    if (endpoint.method === 'POST') {
+      bodyData = newParams;
+      setRequestBody(JSON.stringify(newParams, null, 2));
+    } else {
+      setRequestBody('');
+    }
+    setResponseResult(null);
+    setExecuting(true);
+    try {
+      const result = await executeApiEndpoint(endpoint.method, endpoint.path, newParams, bodyData);
+      setResponseResult(result);
+    } catch (err) {
+      setResponseResult({
+        ok: false,
+        status: 500,
+        statusText: 'Client Error',
+        latency: 0,
+        data: { error: err.message }
+      });
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const handleLoadExample = (example) => {
+    setActiveDriftMode('healthy');
+    setCustomPath(null);
+    const newParams = example.params ? { ...example.params } : {};
+    setParams(newParams);
+    if (selectedApi?.method === 'POST') {
+      setRequestBody(JSON.stringify(newParams, null, 2));
+    }
+  };
+
+  const copyExampleCurl = (example) => {
+    navigator.clipboard.writeText(example.command);
+    setCopiedExampleId(example.id);
+    setTimeout(() => setCopiedExampleId(null), 2000);
+  };
+
+  const copyExamplePrompt = (example) => {
+    navigator.clipboard.writeText(example.prompt);
+    setCopiedPromptId(example.id);
+    setTimeout(() => setCopiedPromptId(null), 2000);
+  };
+
+  const handleSend = async (overrideParams = null, overrideBody = null) => {
     if (!selectedApi) return;
     try {
       setExecuting(true);
       setResponseResult(null);
+      const activeParams = overrideParams !== null ? overrideParams : params;
       let bodyData = null;
-      if (selectedApi.method === 'POST' && requestBody.trim()) {
+      const rawBody = overrideBody !== null ? overrideBody : requestBody;
+      if (selectedApi.method === 'POST' && typeof rawBody === 'string' && rawBody.trim()) {
         try {
-          bodyData = JSON.parse(requestBody);
+          bodyData = JSON.parse(rawBody);
         } catch (e) {
           alert('Invalid JSON in Request Body!');
           setExecuting(false);
           return;
         }
+      } else if (selectedApi.method === 'POST' && typeof rawBody === 'object') {
+        bodyData = rawBody;
       }
       const activePath = customPath || selectedApi.path;
-      const result = await executeApiEndpoint(selectedApi.method, activePath, params, bodyData);
+      const result = await executeApiEndpoint(selectedApi.method, activePath, activeParams, bodyData);
       setResponseResult(result);
     } catch (err) {
       setResponseResult({
@@ -401,6 +900,7 @@ export default function ApiExplorerModal({ isOpen, onClose, initialCatalog = nul
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {filteredEndpoints.map(ep => {
                 const isSelected = selectedApi?.id === ep.id;
+                const epExamples = getEndpointExamples(ep);
                 return (
                   <button
                     key={ep.id}
@@ -439,6 +939,29 @@ export default function ApiExplorerModal({ isOpen, onClose, initialCatalog = nul
                     <div className="text-[11px] text-gray-500 font-mono truncate mt-0.5">
                       {ep.path}
                     </div>
+
+                    {/* 2-3 Example command quick pills right under each API */}
+                    {epExamples.length > 0 && (
+                      <div className="mt-2 pt-1.5 border-t border-gray-100 flex flex-wrap items-center gap-1">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mr-0.5">
+                          Ex:
+                        </span>
+                        {epExamples.map(ex => (
+                          <span
+                            key={ex.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRunExample(ep, ex);
+                            }}
+                            title={`Run example: ${ex.label} (${ex.command})`}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold rounded bg-gray-50 hover:bg-[#FF6C37] hover:text-white text-gray-600 transition-all cursor-pointer border border-gray-200 hover:border-[#FF6C37] active:scale-95"
+                          >
+                            <Zap className="w-2.5 h-2.5 text-amber-500 hover:text-white" />
+                            <span>{ex.badge || ex.label.split(':')[0]}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -562,6 +1085,113 @@ export default function ApiExplorerModal({ isOpen, onClose, initialCatalog = nul
                       </button>
                     </div>
                   )}
+
+                  {/* Showcase Example Commands Section */}
+                  <div className="p-3.5 bg-gradient-to-r from-orange-50/80 via-white to-amber-50/40 border border-orange-200 rounded-xl space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-md bg-[#FF6C37] text-white flex items-center justify-center shadow-xs">
+                          <Sparkles className="w-3 h-3" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                            <span>Showcase Example Commands</span>
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-orange-100 text-[#FF6C37] border border-orange-200 font-mono">
+                              {getEndpointExamples(selectedApi).length} Examples
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-gray-500">
+                            Click any example below to auto-fill parameters and execute live against SQLite
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 pt-0.5">
+                      {getEndpointExamples(selectedApi).map((ex, idx) => {
+                        const isParamActive = JSON.stringify(ex.params) === JSON.stringify(params);
+                        const isCurlCopied = copiedExampleId === ex.id;
+                        const isPromptCopied = copiedPromptId === ex.id;
+
+                        return (
+                          <div
+                            key={ex.id}
+                            className={`p-2.5 rounded-lg border transition-all text-xs ${
+                              isParamActive
+                                ? 'bg-orange-50/90 border-[#FF6C37] shadow-xs ring-1 ring-[#FF6C37]/30'
+                                : 'bg-white hover:bg-gray-50/80 border-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-gray-100 text-gray-700 border border-gray-200 shrink-0">
+                                  Ex {idx + 1}
+                                </span>
+                                <span className="font-bold text-gray-900 truncate">
+                                  {ex.label}
+                                </span>
+                                {isParamActive && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRunExample(selectedApi, ex)}
+                                  disabled={executing}
+                                  className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-[#FF6C37] hover:bg-[#E85B27] active:bg-[#D44C1A] text-white rounded shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                                  title="Auto-fill parameters and execute immediately against SQLite"
+                                >
+                                  <Play className="w-3 h-3 fill-current" />
+                                  <span>Run</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleLoadExample(ex)}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 border border-gray-300 rounded shadow-2xs transition-colors cursor-pointer"
+                                  title="Load parameters into form without immediate execution"
+                                >
+                                  <span>Fill</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => copyExampleCurl(ex)}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 border border-gray-300 rounded shadow-2xs transition-colors cursor-pointer"
+                                  title="Copy cURL command to clipboard"
+                                >
+                                  {isCurlCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Terminal className="w-3 h-3 text-gray-500" />}
+                                  <span>{isCurlCopied ? 'Copied' : 'cURL'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => copyExamplePrompt(ex)}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-700 border border-gray-300 rounded shadow-2xs transition-colors cursor-pointer"
+                                  title="Copy Chatbot plain English prompt"
+                                >
+                                  {isPromptCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <MessageSquare className="w-3 h-3 text-[#FF6C37]" />}
+                                  <span>{isPromptCopied ? 'Copied' : 'Prompt'}</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="text-[11px] text-gray-600 mb-1.5">
+                              {ex.description}
+                            </p>
+
+                            <div className="bg-gray-900 rounded px-2.5 py-1.5 font-mono text-[11px] text-emerald-400 flex items-center justify-between overflow-x-auto shadow-inner">
+                              <span className="truncate pr-2">{ex.command}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                     <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">

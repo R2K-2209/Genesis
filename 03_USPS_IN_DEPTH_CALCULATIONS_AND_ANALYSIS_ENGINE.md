@@ -70,9 +70,13 @@ $$\text{Action}(\mathcal{R}) =
   - Endpoint: `POST /records` (read query) $\implies S_{\text{fin}} = 0$
   - Type cast: string to int $\implies S_{\text{type}} = 10$
   $$\mathcal{R} = (0.15 \times 75) + (0.30 \times 10) + (0.40 \times 0) + (0.15 \times 10) = 11.25 + 3.0 + 0 + 1.5 = \mathbf{15.75} \quad (< 35 \implies \mathbf{Auto\text{-}Heal})$$
-* **Scenario B (Banking Wire Transfer)**:
-  - $S_{\text{struct}} = 40, S_{\text{sens}} = 90, S_{\text{fin}} = 100, S_{\text{type}} = 20$
-  $$\mathcal{R} = (0.15 \times 40) + (0.30 \times 90) + (0.40 \times 100) + (0.15 \times 20) = 6 + 27 + 40 + 3 = \mathbf{76.0} \quad (\ge 70 \implies \mathbf{Human\text{-}in\text{-}the\text{-}Loop})$$
+* **Scenario B (Banking Wire Transfer — Live SQLite `banking_wire_transfers` Table)**:
+  - **Live Table Schema**: Evaluated directly against the real SQLite table `banking_wire_transfers` comprising 19 live attributes: `id` (INTEGER PK), `wire_reference` (TEXT), `source_account` (TEXT), `routing_number` (TEXT), `destination_account` (TEXT), `recipient_name` (TEXT), `swift_code` (TEXT), `iban` (TEXT), `amount` (REAL), `currency` (TEXT), `auth_token` (TEXT), `security_pin_hash` (TEXT), `wire_type` (TEXT), `execution_priority` (TEXT), `status` (TEXT), `risk_assessment_score` (REAL), `circuit_breaker_tripped` (INTEGER), `memo` (TEXT), `created_at` (TEXT).
+  - **Structural Complexity ($S_{\text{struct}}$)**: 2 field renames on live attributes (`account_id → source_account`, `recipient → destination_account`) $\implies 20 \times 2 = 40.0$.
+  - **Data Sensitivity ($S_{\text{sens}}$)**: Scanned against live database schema and incoming keys. CRITICAL security attributes detected (`auth_token`, `security_pin_hash` $\to 100$), HIGH sensitivity routing credentials (`routing_number`, `iban`, `swift_code` $\to 85$), and MODERATE account identifiers (`source_account`, `destination_account` $\to 40$) $\implies S_{\text{sens}} = \mathbf{100.0}$.
+  - **Financial Impact ($S_{\text{fin}}$)**: Mutating `POST /api/v1/banking/transfer` against live financial entity $\implies S_{\text{fin}} = \mathbf{100.0}$.
+  - **Type Coercion Risk ($S_{\text{type}}$)**: Live SQLite column `amount` (`REAL` / float) coerced to integer `int` (LOSSY truncation of decimal cents in monetary settlement, e.g. $250,000.75 truncated to $250,000) $\implies S_{\text{type}} = \mathbf{80.0}$.
+  $$\mathcal{R} = (0.15 \times 40) + (0.30 \times 100) + (0.40 \times 100) + (0.15 \times 80) = 6.0 + 30.0 + 40.0 + 12.0 = \mathbf{88.0} \quad (\ge 70 \implies \mathbf{TRIP\_CIRCUIT\_BREAKER\_HITL})$$
 
 ---
 

@@ -111,6 +111,10 @@ export default function App() {
       status: response.status === 'error' ? 'error' : 'completed',
       apiCall: response.api_call,
       featureTitle: prev?.featureTitle || response.featureTitle,
+      driftMode: response.driftMode || prev?.driftMode,
+      scenarioId: response.scenarioId || prev?.scenarioId,
+      endpointId: response.endpointId || prev?.endpointId,
+      healed_telemetry: response.healed_telemetry || prev?.healed_telemetry,
       logs: response.execution_logs || prev?.logs || [],
       telemetry: response.telemetry || {
         execution_time_ms: response.api_call?.latency_ms || 18.5,

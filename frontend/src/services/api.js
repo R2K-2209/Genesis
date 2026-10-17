@@ -197,6 +197,37 @@ export async function resetAegisState() {
   return res.json();
 }
 
+export async function executeBlastRadiusTest({
+  scenario = 'comparison',
+  endpoint = null,
+  httpMethod = null,
+  fieldRenames = null,
+  typeCasts = null,
+  nestedWraps = null,
+  injectedHeaders = null,
+  modifiedKeys = null
+} = {}) {
+  const res = await fetch(`${API_BASE_URL}/api/aegis/test/blast-radius`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      scenario,
+      endpoint: endpoint || undefined,
+      http_method: httpMethod || undefined,
+      field_renames: fieldRenames || undefined,
+      type_casts: typeCasts || undefined,
+      nested_wraps: nestedWraps || undefined,
+      injected_headers: injectedHeaders || undefined,
+      modified_keys: modifiedKeys || undefined
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Blast-radius test failed' }));
+    throw new Error(err.detail || 'Blast-radius test failed');
+  }
+  return res.json();
+}
+
 export async function executeSingleFlightTest() {
   const res = await fetch(`${API_BASE_URL}/api/aegis/test/single-flight`, {
     method: 'POST',
@@ -221,7 +252,18 @@ export async function executeSqlUndoTest() {
   return res.json();
 }
 
-export async function executeGitOpsPrTest({ githubToken = '', githubRepo = 'R2K-2209/Genesis', baseBranch = 'main', toolName = 'get_student', endpoint = '/api/v1/students/{student_id}/graduation-eligibility' } = {}) {
+export async function executeGitOpsPrTest({
+  githubToken = '',
+  githubRepo = 'R2K-2209/Genesis',
+  baseBranch = 'main',
+  toolName = 'get_student',
+  endpoint = '/api/v1/students/{student_id}/graduation-eligibility',
+  driftType = null,
+  fieldRenames = null,
+  typeCasts = null,
+  nestedWraps = null,
+  routeRedirect = null
+} = {}) {
   const res = await fetch(`${API_BASE_URL}/api/aegis/test/gitops-pr`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -230,7 +272,12 @@ export async function executeGitOpsPrTest({ githubToken = '', githubRepo = 'R2K-
       github_repo: githubRepo,
       base_branch: baseBranch,
       tool_name: toolName,
-      endpoint: endpoint
+      endpoint: endpoint,
+      drift_type: driftType || undefined,
+      field_renames: fieldRenames || undefined,
+      type_casts: typeCasts || undefined,
+      nested_wraps: nestedWraps || undefined,
+      route_redirect: routeRedirect || undefined
     })
   });
   if (!res.ok) {

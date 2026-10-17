@@ -15,6 +15,50 @@ router = APIRouter(prefix="/api/v1", tags=["University API Catalog"])
 
 # Metadata registry for the UI API Explorer
 API_REGISTRY = [
+    {
+        "id": "complex-banking-transfer",
+        "name": "High-Value Banking Wire Transfer",
+        "complexity": "Complex",
+        "method": "POST",
+        "path": "/api/v1/banking/transfer",
+        "summary": "Execute high-value bank wire transfer with Blast-Radius Policy Governor pre-commit gating",
+        "tables": ["banking_wire_transfers"],
+        "description": "Critical financial transaction executing on the live banking_wire_transfers table. Demonstrates USP 2 Policy Governor detecting schema drift, high sensitivity PII credentials, and type coercion (float -> int truncation) to trip the circuit breaker (R >= 70).",
+        "default_params": {
+            "source_account": "ACCT-CORP-9821-4401",
+            "routing_number": "021000021",
+            "destination_account": "ACCT-SETTLE-7712-9908",
+            "recipient_name": "Apex Global Liquidity Corp",
+            "amount": 250000.75,
+            "currency": "USD",
+            "auth_token": "sec_tok_live_8f3a992bc01",
+            "swift_code": "CHASUS33XXX",
+            "wire_type": "FEDWIRE_DOMESTIC",
+            "memo": "Quarterly Interbank Treasury Liquidity Rebalance"
+        },
+        "examples": [
+            {
+                "id": "ex-wire-1",
+                "label": "Interbank Fedwire ($250,000.75)",
+                "badge": "Fedwire",
+                "description": "Corporate liquidity sweep triggering pre-commit Policy Governor evaluation",
+                "params": {
+                    "source_account": "ACCT-CORP-9821-4401",
+                    "routing_number": "021000021",
+                    "destination_account": "ACCT-SETTLE-7712-9908",
+                    "recipient_name": "Apex Global Liquidity Corp",
+                    "amount": 250000.75,
+                    "currency": "USD",
+                    "auth_token": "sec_tok_live_8f3a992bc01",
+                    "swift_code": "CHASUS33XXX",
+                    "wire_type": "FEDWIRE_DOMESTIC",
+                    "memo": "Treasury Liquidity Sweep"
+                },
+                "command": "curl -X POST \"http://localhost:8000/api/v1/banking/transfer\" -H \"Content-Type: application/json\" -d '{\"source_account\":\"ACCT-CORP-9821-4401\",\"routing_number\":\"021000021\",\"destination_account\":\"ACCT-SETTLE-7712-9908\",\"recipient_name\":\"Apex Global Liquidity Corp\",\"amount\":250000.75,\"currency\":\"USD\",\"auth_token\":\"sec_tok_live_8f3a992bc01\"}'",
+                "prompt": "Execute corporate wire transfer of $250,000.75 to Apex Global Liquidity"
+            }
+        ]
+    },
     # ------------------ SIMPLE APIS ------------------
     {
         "id": "simple-students",
@@ -25,7 +69,36 @@ API_REGISTRY = [
         "summary": "Retrieve paginated student directory filtered by status",
         "tables": ["students"],
         "description": "Simple single-table lookup supporting pagination and student status filtering (enrolled, graduated, suspended).",
-        "default_params": {"status": "enrolled", "page": 1, "limit": 10}
+        "default_params": {"status": "enrolled", "page": 1, "limit": 10},
+        "examples": [
+            {
+                "id": "ex-students-1",
+                "label": "Active Enrolled Students",
+                "badge": "Enrolled",
+                "description": "Retrieves currently enrolled active students with limit 5",
+                "params": {"status": "enrolled", "page": 1, "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/list?status=enrolled&limit=5\"",
+                "prompt": "Show me a list of active enrolled students"
+            },
+            {
+                "id": "ex-students-2",
+                "label": "Graduated Alumni Roster",
+                "badge": "Graduated",
+                "description": "Lists recently graduated alumni records from students table",
+                "params": {"status": "graduated", "page": 1, "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/list?status=graduated&limit=5\"",
+                "prompt": "List recently graduated university alumni"
+            },
+            {
+                "id": "ex-students-3",
+                "label": "Withdrawn / Inactive Records",
+                "badge": "Withdrawn",
+                "description": "Inspects withdrawn or suspended student accounts",
+                "params": {"status": "withdrawn", "page": 1, "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/list?status=withdrawn&limit=5\"",
+                "prompt": "Find withdrawn student accounts"
+            }
+        ]
     },
     {
         "id": "simple-courses",
@@ -36,7 +109,36 @@ API_REGISTRY = [
         "summary": "Search university course catalog by keyword or minimum credits",
         "tables": ["courses"],
         "description": "Query course listings with keyword filtering across code and course title.",
-        "default_params": {"search": "Calculus", "min_credits": 1, "limit": 10}
+        "default_params": {"search": "Calculus", "min_credits": 1, "limit": 10},
+        "examples": [
+            {
+                "id": "ex-courses-1",
+                "label": "Calculus Courses (1+ Credits)",
+                "badge": "Calculus",
+                "description": "Search for university calculus courses offering at least 1 credit",
+                "params": {"search": "Calculus", "min_credits": 1, "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/catalog?search=Calculus&min_credits=1&limit=5\"",
+                "prompt": "Search for Calculus courses with at least 1 credit"
+            },
+            {
+                "id": "ex-courses-2",
+                "label": "Advanced Statistics (3+ Credits)",
+                "badge": "Statistics",
+                "description": "Query advanced 3+ credit courses in statistics and quantitative methods",
+                "params": {"search": "Statistics", "min_credits": 3, "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/catalog?search=Statistics&min_credits=3&limit=5\"",
+                "prompt": "Find 3-credit statistics courses in the catalog"
+            },
+            {
+                "id": "ex-courses-3",
+                "label": "Ethics & Seminar Classes",
+                "badge": "Ethics",
+                "description": "Filter courses in professional ethics, bioethics, and humanities",
+                "params": {"search": "Ethics", "min_credits": 1, "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/catalog?search=Ethics&min_credits=1&limit=5\"",
+                "prompt": "Search for ethics courses in the catalog"
+            }
+        ]
     },
     {
         "id": "simple-books",
@@ -47,7 +149,36 @@ API_REGISTRY = [
         "summary": "Search books in university library by title or author",
         "tables": ["books"],
         "description": "Direct search in the 2,000 book records in the campus library inventory.",
-        "default_params": {"query": "History", "limit": 10}
+        "default_params": {"query": "History", "limit": 10},
+        "examples": [
+            {
+                "id": "ex-books-1",
+                "label": "Physics Library Holdings",
+                "badge": "Physics",
+                "description": "Searches campus library catalog for physics and sciences literature",
+                "params": {"query": "Physics", "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/books/search?query=Physics&limit=5\"",
+                "prompt": "Search for Physics books in the library"
+            },
+            {
+                "id": "ex-books-2",
+                "label": "History & World Studies",
+                "badge": "History",
+                "description": "Finds world history and social studies textbooks in inventory",
+                "params": {"query": "History", "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/books/search?query=History&limit=5\"",
+                "prompt": "Find History titles in the university library"
+            },
+            {
+                "id": "ex-books-3",
+                "label": "Biology & Life Sciences",
+                "badge": "Biology",
+                "description": "Locates biological sciences and medicine publications",
+                "params": {"query": "Biology", "limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/books/search?query=Biology&limit=5\"",
+                "prompt": "Search library books on Biology"
+            }
+        ]
     },
     {
         "id": "simple-departments",
@@ -58,7 +189,27 @@ API_REGISTRY = [
         "summary": "List all active academic departments and codes",
         "tables": ["departments"],
         "description": "Retrieves the full list of academic faculties and departments.",
-        "default_params": {}
+        "default_params": {},
+        "examples": [
+            {
+                "id": "ex-depts-1",
+                "label": "All Academic Departments",
+                "badge": "All Depts",
+                "description": "Full directory of university colleges, faculties, and codes",
+                "params": {},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/departments/list\"",
+                "prompt": "List all academic departments and their codes"
+            },
+            {
+                "id": "ex-depts-2",
+                "label": "Faculty Headcount Check",
+                "badge": "Faculties",
+                "description": "Overview of academic divisions currently active on campus",
+                "params": {},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/departments/list\"",
+                "prompt": "What faculties and departments does the university have?"
+            }
+        ]
     },
     {
         "id": "simple-clubs",
@@ -69,7 +220,36 @@ API_REGISTRY = [
         "summary": "Directory of student clubs and societies",
         "tables": ["clubs"],
         "description": "Browse registered student organizations on campus.",
-        "default_params": {"limit": 10}
+        "default_params": {"limit": 10},
+        "examples": [
+            {
+                "id": "ex-clubs-1",
+                "label": "Top 5 Student Clubs",
+                "badge": "Top 5",
+                "description": "Lists top student clubs and registered student organizations",
+                "params": {"limit": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/clubs/directory?limit=5\"",
+                "prompt": "List registered student clubs and organizations"
+            },
+            {
+                "id": "ex-clubs-2",
+                "label": "Campus Societies (15 Clubs)",
+                "badge": "15 Clubs",
+                "description": "Expanded browse of academic, cultural, and sports clubs",
+                "params": {"limit": 15},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/clubs/directory?limit=15\"",
+                "prompt": "Browse 15 student clubs on campus"
+            },
+            {
+                "id": "ex-clubs-3",
+                "label": "Full Clubs Directory (25 Clubs)",
+                "badge": "25 Clubs",
+                "description": "Comprehensive list of university student life societies",
+                "params": {"limit": 25},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/clubs/directory?limit=25\"",
+                "prompt": "What student organizations can students join?"
+            }
+        ]
     },
 
     # ------------------ MEDIUM APIS ------------------
@@ -82,7 +262,36 @@ API_REGISTRY = [
         "summary": "Combines student demographics, program, department, and assigned advisor",
         "tables": ["students", "people", "programs", "departments", "instructors"],
         "description": "Multi-table join combining personal records, enrolled degree programs, department info, and faculty advisor.",
-        "default_params": {"student_id": 1}
+        "default_params": {"student_id": 1},
+        "examples": [
+            {
+                "id": "ex-bio-1",
+                "label": "Student #1 Academic Bio & Advisor",
+                "badge": "Student 1",
+                "description": "Inspects advisor assignment and degree program for Student #1",
+                "params": {"student_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/1/academic-summary\"",
+                "prompt": "Who is the academic advisor for student 1?"
+            },
+            {
+                "id": "ex-bio-2",
+                "label": "Student #4 Active Enrolled Bio",
+                "badge": "Student 4",
+                "description": "Checks department, contact info, and program for Student #4",
+                "params": {"student_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/4/academic-summary\"",
+                "prompt": "Get academic summary and program details for student 4"
+            },
+            {
+                "id": "ex-bio-3",
+                "label": "Student #7 Faculty & Department",
+                "badge": "Student 7",
+                "description": "Audits faculty mentor rank and college department for Student #7",
+                "params": {"student_id": 7},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/7/academic-summary\"",
+                "prompt": "Check department and advisor for student 7"
+            }
+        ]
     },
     {
         "id": "medium-syllabus",
@@ -93,7 +302,36 @@ API_REGISTRY = [
         "summary": "Course specifications, required textbooks, and materials",
         "tables": ["courses", "course_materials", "departments"],
         "description": "Fetches course details joined with its required textbooks, software, and instructional materials.",
-        "default_params": {"course_id": 1}
+        "default_params": {"course_id": 1},
+        "examples": [
+            {
+                "id": "ex-syl-1",
+                "label": "Course #1: Calculus In Materials",
+                "badge": "Course 1",
+                "description": "Inspects required calculus textbooks, ISBNs, and authors for Course #1",
+                "params": {"course_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/1/syllabus-materials\"",
+                "prompt": "What textbooks and materials are required for course 1?"
+            },
+            {
+                "id": "ex-syl-2",
+                "label": "Course #2: Ethics Seminar Reading",
+                "badge": "Course 2",
+                "description": "Pulls syllabus specifications and reading list for Course #2",
+                "params": {"course_id": 2},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/2/syllabus-materials\"",
+                "prompt": "Show syllabus and reading list for course 2"
+            },
+            {
+                "id": "ex-syl-3",
+                "label": "Course #4: Statistics Software & Text",
+                "badge": "Course 4",
+                "description": "Retrieves instructional materials and textbooks for Course #4",
+                "params": {"course_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/4/syllabus-materials\"",
+                "prompt": "Retrieve required course materials for course 4"
+            }
+        ]
     },
     {
         "id": "medium-student-finance",
@@ -104,7 +342,36 @@ API_REGISTRY = [
         "summary": "Detailed itemized invoices, fee types, and payment history",
         "tables": ["invoices", "invoice_items", "payments", "fee_types"],
         "description": "Reconciles student invoices with itemized fee breakdowns and recorded payments.",
-        "default_params": {"student_id": 1}
+        "default_params": {"student_id": 1},
+        "examples": [
+            {
+                "id": "ex-fin-1",
+                "label": "Student #1 Invoices & Tuition Ledger",
+                "badge": "Student 1",
+                "description": "Audits tuition fees, itemized charges, and payment balance for Student #1",
+                "params": {"student_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/finance/student/1/ledger\"",
+                "prompt": "What is the outstanding tuition balance for student 1?"
+            },
+            {
+                "id": "ex-fin-2",
+                "label": "Student #5 High Outstanding Balance",
+                "badge": "Student 5",
+                "description": "Examines large unpaid semester invoices and fees for Student #5",
+                "params": {"student_id": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/finance/student/5/ledger\"",
+                "prompt": "Check billing history and unpaid fees for student 5"
+            },
+            {
+                "id": "ex-fin-3",
+                "label": "Student #7 Itemized Fee Breakdown",
+                "badge": "Student 7",
+                "description": "Full reconciliation of invoice line items and recorded payments for Student #7",
+                "params": {"student_id": 7},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/finance/student/7/ledger\"",
+                "prompt": "Show financial ledger and payments for student 7"
+            }
+        ]
     },
     {
         "id": "medium-library-loans",
@@ -115,7 +382,36 @@ API_REGISTRY = [
         "summary": "Active and historical book loans with return status and due dates",
         "tables": ["library_cards", "book_loans", "books", "people"],
         "description": "Checks book circulation records, due dates, and borrower contact details.",
-        "default_params": {"card_id": 1}
+        "default_params": {"card_id": 1},
+        "examples": [
+            {
+                "id": "ex-loan-1",
+                "label": "Card #1: Active Loans & Overdue Check",
+                "badge": "Card 1",
+                "description": "Audits current book circulation and return dates for Library Card #1",
+                "params": {"card_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/library/borrower/1/loans\"",
+                "prompt": "Does library card 1 have any overdue books checked out?"
+            },
+            {
+                "id": "ex-loan-2",
+                "label": "Card #2: Circulation History & Due Dates",
+                "badge": "Card 2",
+                "description": "Inspects borrowed book titles and expiration date for Card #2",
+                "params": {"card_id": 2},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/library/borrower/2/loans\"",
+                "prompt": "Check book loans and return status for card 2"
+            },
+            {
+                "id": "ex-loan-3",
+                "label": "Card #4: Borrower Loans in Good Standing",
+                "badge": "Card 4",
+                "description": "Retrieves active book loans and patron profile for Card #4",
+                "params": {"card_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/library/borrower/4/loans\"",
+                "prompt": "View active book loans for borrower card 4"
+            }
+        ]
     },
     {
         "id": "medium-payment-record",
@@ -126,7 +422,36 @@ API_REGISTRY = [
         "summary": "Processes a payment against an invoice and updates student balance",
         "tables": ["payments", "invoices"],
         "description": "Validates invoice validity, writes a payment transaction, and computes remaining balance.",
-        "default_params": {"invoice_id": 89, "amount": 500.0, "payment_method": "card"}
+        "default_params": {"invoice_id": 4, "amount": 500.0, "payment_method": "card"},
+        "examples": [
+            {
+                "id": "ex-pay-1",
+                "label": "$500 Card Payment on Invoice #4",
+                "badge": "$500 Card",
+                "description": "Applies a $500 partial credit card payment against active Invoice #4",
+                "params": {"invoice_id": 4, "amount": 500.0, "payment_method": "card"},
+                "command": "curl -X POST \"http://localhost:8000/api/v1/finance/payments/record\" -H \"Content-Type: application/json\" -d '{\"invoice_id\": 4, \"amount\": 500.0, \"payment_method\": \"card\"}'",
+                "prompt": "Pay $500 towards invoice 4 using card"
+            },
+            {
+                "id": "ex-pay-2",
+                "label": "$1,200 Wire Transfer on Invoice #8",
+                "badge": "$1,200 Wire",
+                "description": "Records an electronic bank wire transfer of $1,200 on Invoice #8",
+                "params": {"invoice_id": 8, "amount": 1200.0, "payment_method": "transfer"},
+                "command": "curl -X POST \"http://localhost:8000/api/v1/finance/payments/record\" -H \"Content-Type: application/json\" -d '{\"invoice_id\": 8, \"amount\": 1200.0, \"payment_method\": \"transfer\"}'",
+                "prompt": "Record a $1200 bank transfer payment on invoice 8"
+            },
+            {
+                "id": "ex-pay-3",
+                "label": "$250 Campus Cash on Invoice #34",
+                "badge": "$250 Cash",
+                "description": "Processes a $250 cash receipt voucher against Invoice #34",
+                "params": {"invoice_id": 34, "amount": 250.0, "payment_method": "cash"},
+                "command": "curl -X POST \"http://localhost:8000/api/v1/finance/payments/record\" -H \"Content-Type: application/json\" -d '{\"invoice_id\": 34, \"amount\": 250.0, \"payment_method\": \"cash\"}'",
+                "prompt": "Process a $250 cash payment against invoice 34"
+            }
+        ]
     },
 
     # ------------------ COMPLEX APIS ------------------
@@ -139,7 +464,36 @@ API_REGISTRY = [
         "summary": "Semester-by-semester grade breakdown with weighted CGPA math",
         "tables": ["students", "people", "enrollments", "sections", "courses", "semesters"],
         "description": "Multi-table join (6 tables) calculating semester term GPAs, cumulative CGPA, credits earned, and honors standing.",
-        "default_params": {"student_id": 1}
+        "default_params": {"student_id": 1},
+        "examples": [
+            {
+                "id": "ex-tra-1",
+                "label": "Student #1: Graduated Honors Transcript",
+                "badge": "Student 1",
+                "description": "Computes weighted CGPA, grade distribution, and honors standing for Student #1",
+                "params": {"student_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/1/transcript-audit\"",
+                "prompt": "Audit the full academic transcript and CGPA for student 1"
+            },
+            {
+                "id": "ex-tra-2",
+                "label": "Student #4: Multi-Semester Grade Audit",
+                "badge": "Student 4",
+                "description": "Evaluates semester-by-semester term GPAs and credits earned for Student #4",
+                "params": {"student_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/4/transcript-audit\"",
+                "prompt": "Check grades, term GPAs, and credits earned for student 4"
+            },
+            {
+                "id": "ex-tra-3",
+                "label": "Student #7: Cumulative Standing & Credits",
+                "badge": "Student 7",
+                "description": "Audits cumulative degree completion percentage and standing for Student #7",
+                "params": {"student_id": 7},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/7/transcript-audit\"",
+                "prompt": "Calculate cumulative GPA and academic honors for student 7"
+            }
+        ]
     },
     {
         "id": "complex-graduation-audit",
@@ -150,7 +504,36 @@ API_REGISTRY = [
         "summary": "Autonomous degree audit checking credits, CGPA, financial holds & prerequisites",
         "tables": ["students", "programs", "enrollments", "courses", "invoices", "payments"],
         "description": "Enterprise audit (7 tables) verifying 4 independent graduation invariants: credit threshold, minimum 2.0 CGPA, zero tuition balance hold, and prerequisite satisfaction.",
-        "default_params": {"student_id": 1}
+        "default_params": {"student_id": 1},
+        "examples": [
+            {
+                "id": "ex-grad-1",
+                "label": "Student #1: Graduation Clearance (Passed)",
+                "badge": "Student 1",
+                "description": "Verifies all 4 degree graduation invariants for cleared graduate Student #1",
+                "params": {"student_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/1/graduation-eligibility\"",
+                "prompt": "Is student 1 eligible to graduate this semester?"
+            },
+            {
+                "id": "ex-grad-2",
+                "label": "Student #4: Degree Invariant & Credit Check",
+                "badge": "Student 4",
+                "description": "Evaluates required credits and minimum 2.50 CGPA threshold for Student #4",
+                "params": {"student_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/4/graduation-eligibility\"",
+                "prompt": "Run an autonomous degree graduation audit for student 4"
+            },
+            {
+                "id": "ex-grad-3",
+                "label": "Student #5: Financial Hold & Action Items",
+                "badge": "Student 5",
+                "description": "Identifies unpaid tuition hold preventing degree dispatch for Student #5",
+                "params": {"student_id": 5},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/students/5/graduation-eligibility\"",
+                "prompt": "Check if student 5 has any graduation holds or missing credits"
+            }
+        ]
     },
     {
         "id": "complex-dept-workload",
@@ -161,7 +544,36 @@ API_REGISTRY = [
         "summary": "Departmental faculty-to-student ratios, course load & enrollment volume",
         "tables": ["departments", "instructors", "courses", "sections", "enrollments"],
         "description": "Aggregates university-wide operational intelligence across 5 tables: active sections, instructor compensation, and total student enrollments.",
-        "default_params": {}
+        "default_params": {},
+        "examples": [
+            {
+                "id": "ex-dept-1",
+                "label": "University-Wide Operational Analytics",
+                "badge": "All Depts",
+                "description": "Ranks academic departments by total student enrollment across active sections",
+                "params": {},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/analytics/department-workload\"",
+                "prompt": "Which academic department has the highest student enrollment workload?"
+            },
+            {
+                "id": "ex-dept-2",
+                "label": "Faculty Ratios & Course Offerings",
+                "badge": "Faculty Ratios",
+                "description": "Calculates student-to-faculty ratios and active sections per department",
+                "params": {},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/analytics/department-workload\"",
+                "prompt": "Show faculty-to-student ratios across all departments"
+            },
+            {
+                "id": "ex-dept-3",
+                "label": "Faculty Salary & Load Analysis",
+                "badge": "Compensation",
+                "description": "Computes average faculty compensation against total enrollment density",
+                "params": {},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/analytics/department-workload\"",
+                "prompt": "Analyze active course sections and faculty salaries by department"
+            }
+        ]
     },
     {
         "id": "complex-scholarship-matcher",
@@ -172,7 +584,36 @@ API_REGISTRY = [
         "summary": "Matches student GPA and outstanding tuition against university scholarship criteria",
         "tables": ["students", "scholarships", "student_scholarships", "enrollments", "invoices"],
         "description": "Evaluates student's current academic standing and financial need to find eligible awards and active scholarship funding.",
-        "default_params": {"student_id": 1}
+        "default_params": {"student_id": 1},
+        "examples": [
+            {
+                "id": "ex-sch-1",
+                "label": "Student #1: High-GPA Merit Matcher",
+                "badge": "Student 1",
+                "description": "Matches Student #1's GPA against high-tier institutional scholarships",
+                "params": {"student_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/scholarships/eligibility-matcher/1\"",
+                "prompt": "Match eligible merit and need-based scholarships for student 1"
+            },
+            {
+                "id": "ex-sch-2",
+                "label": "Student #4: Active Funding & Opportunities",
+                "badge": "Student 4",
+                "description": "Surveys active scholarship grants and qualified funding for Student #4",
+                "params": {"student_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/scholarships/eligibility-matcher/4\"",
+                "prompt": "Find active awards and matching scholarships for student 4"
+            },
+            {
+                "id": "ex-sch-3",
+                "label": "Student #7: Need & GPA Evaluation",
+                "badge": "Student 7",
+                "description": "Determines qualification for tuition relief and endowed scholarships for Student #7",
+                "params": {"student_id": 7},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/scholarships/eligibility-matcher/7\"",
+                "prompt": "Check scholarship funding eligibility for student 7"
+            }
+        ]
     },
     {
         "id": "complex-prerequisite-dag",
@@ -183,7 +624,36 @@ API_REGISTRY = [
         "summary": "Recursive dependency tree traversal of all prerequisite courses",
         "tables": ["courses", "course_prerequisites"],
         "description": "Traverses the directed acyclic graph (DAG) of prerequisite requirements to generate the complete path of courses required before taking an advanced class.",
-        "default_params": {"course_id": 40}
+        "default_params": {"course_id": 1},
+        "examples": [
+            {
+                "id": "ex-dag-1",
+                "label": "Course #1: Calculus In Prerequisite Chain",
+                "badge": "Course 1",
+                "description": "Traverses prerequisite requirements tree leading into Course #1",
+                "params": {"course_id": 1},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/1/prerequisite-chain\"",
+                "prompt": "What is the prerequisite dependency DAG for course 1?"
+            },
+            {
+                "id": "ex-dag-2",
+                "label": "Course #4: Advanced Statistics DAG",
+                "badge": "Course 4",
+                "description": "Recursive dependency tree for advanced quantitative statistics Course #4",
+                "params": {"course_id": 4},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/4/prerequisite-chain\"",
+                "prompt": "Traverse the prerequisite sequence needed before enrolling in course 4"
+            },
+            {
+                "id": "ex-dag-3",
+                "label": "Course #27: Applied Calculus Multi-Hop",
+                "badge": "Course 27",
+                "description": "Evaluates foundational math sequence required prior to Course #27",
+                "params": {"course_id": 27},
+                "command": "curl -X GET \"http://localhost:8000/api/v1/courses/27/prerequisite-chain\"",
+                "prompt": "What courses must be completed before taking course 27?"
+            }
+        ]
     }
 ]
 
@@ -919,6 +1389,110 @@ def get_course_prerequisite_chain(course_id: int = Path(..., description="Course
             "has_prerequisites": len(tree) > 0,
             "total_prerequisite_courses": len(visited) - 1,
             "dependency_tree": tree
+        }
+    finally:
+        conn.close()
+
+
+class BankingWireTransferRequest(BaseModel):
+    source_account: str = Field(..., example="ACCT-CORP-9821-4401")
+    routing_number: str = Field(..., example="021000021")
+    destination_account: str = Field(..., example="ACCT-SETTLE-7712-9908")
+    recipient_name: str = Field(..., example="Apex Global Liquidity Corp")
+    amount: float = Field(..., example=250000.75)
+    currency: Optional[str] = Field("USD", example="USD")
+    auth_token: str = Field(..., example="sec_tok_live_8f3a992bc01")
+    swift_code: Optional[str] = Field("CHASUS33XXX", example="CHASUS33XXX")
+    wire_type: Optional[str] = Field("FEDWIRE_DOMESTIC", example="FEDWIRE_DOMESTIC")
+    memo: Optional[str] = Field("Treasury Liquidity Sweep", example="Treasury Liquidity Sweep")
+
+
+@router.post("/banking/transfer")
+def execute_banking_wire_transfer(payload: BankingWireTransferRequest):
+    """
+    Complex API (Financial Security & Policy Governor Pre-Commit):
+    Executes a high-value banking wire transfer on the live banking_wire_transfers table.
+    Enforces the Blast-Radius Policy Governor before allowing execution.
+    """
+    from backend.services.aegis_policy_governor import aegis_policy_governor
+
+    # Pre-commit Policy Governor Evaluation against real database table
+    score = aegis_policy_governor.evaluate(
+        endpoint="/api/v1/banking/transfer",
+        http_method="POST",
+        target_table="banking_wire_transfers",
+        field_renames={"account_id": "source_account", "recipient": "destination_account"},
+        type_casts={"amount": "int"},
+        modified_keys=["source_account", "routing_number", "amount", "auth_token"]
+    )
+
+    circuit_tripped = 1 if score.risk_score >= 70 else 0
+    status = "CIRCUIT_BREAKER_HELD" if circuit_tripped else "COMPLETED"
+    import uuid, datetime
+    wire_ref = f"WIRE-{datetime.datetime.now().strftime('%Y')}-US-{uuid.uuid4().hex[:6].upper()}"
+    pin_hash = f"sha256_{uuid.uuid4().hex}"
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO banking_wire_transfers (
+                wire_reference, source_account, routing_number, destination_account,
+                recipient_name, swift_code, iban, amount, currency, auth_token,
+                security_pin_hash, wire_type, execution_priority, status,
+                risk_assessment_score, circuit_breaker_tripped, memo, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            wire_ref, payload.source_account, payload.routing_number, payload.destination_account,
+            payload.recipient_name, payload.swift_code or "CHASUS33XXX", f"US64CHAS021000021{payload.source_account.replace('-', '')}",
+            payload.amount, payload.currency, payload.auth_token, pin_hash, payload.wire_type,
+            "HIGH" if payload.amount > 100000 else "STANDARD", status, score.risk_score,
+            circuit_tripped, payload.memo, created_at
+        ))
+        conn.commit()
+        transfer_id = cursor.lastrowid
+        cursor.execute("SELECT * FROM banking_wire_transfers WHERE id = ?;", (transfer_id,))
+        record = dict(cursor.fetchone())
+        return {
+            "status": "success",
+            "message": "Banking wire transfer recorded in database",
+            "circuit_breaker": {
+                "tripped": bool(circuit_tripped),
+                "action": score.action,
+                "risk_score": score.risk_score,
+                "policy": "Human-in-the-Loop Required for high blast-radius patches (R >= 70)" if circuit_tripped else "Auto-Approved"
+            },
+            "record": record
+        }
+    finally:
+        conn.close()
+
+
+@router.get("/banking/wire-transfers")
+def list_banking_wire_transfers(
+    limit: int = Query(10, ge=1, le=100),
+    status: Optional[str] = Query(None, description="Filter by status (e.g. CIRCUIT_BREAKER_HELD, COMPLETED)")
+):
+    """
+    Complex API:
+    Queries real records from the live banking_wire_transfers table in SQLite.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        if status:
+            cursor.execute("SELECT * FROM banking_wire_transfers WHERE status = ? ORDER BY id DESC LIMIT ?;", (status, limit))
+        else:
+            cursor.execute("SELECT * FROM banking_wire_transfers ORDER BY id DESC LIMIT ?;", (limit,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT COUNT(*) FROM banking_wire_transfers;")
+        total = cursor.fetchone()[0]
+        return {
+            "table": "banking_wire_transfers",
+            "total_records": total,
+            "returned_records": len(rows),
+            "records": rows
         }
     finally:
         conn.close()

@@ -8,10 +8,14 @@ import {
   Key,
   X,
   Database,
-  Code2
+  Code2,
+  GitPullRequest,
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import {
   sendChatMessage,
+  executeBlastRadiusTest,
   executeSingleFlightTest,
   executeSqlUndoTest,
   executeGitOpsPrTest
@@ -38,6 +42,8 @@ export default function ChatbotPanel({
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile');
   const [expandedJson, setExpandedJson] = useState({});
   const [expandedDiff, setExpandedDiff] = useState({});
+  const [prStatusByMsg, setPrStatusByMsg] = useState({});
+  const [loadingPrForMsg, setLoadingPrForMsg] = useState(null);
 
   const messagesEndRef = useRef(null);
 
@@ -60,6 +66,44 @@ export default function ChatbotPanel({
 
   const toggleDiff = (msgId) => {
     setExpandedDiff(prev => ({ ...prev, [msgId]: !prev[msgId] }));
+  };
+
+  const handleCreatePrForMessage = async (msg) => {
+    try {
+      setLoadingPrForMsg(msg.id);
+      const token = localStorage.getItem('github_token') || '';
+      const repo = localStorage.getItem('github_repo') || 'R2K-2209/Genesis';
+      const endpoint = msg.api_call?.path || '/api/v1/students/{student_id}/graduation-eligibility';
+      const toolName = msg.api_call?.endpoint_name || 'get_student';
+      const driftType = msg.healed_telemetry?.drift_type || 'PARAMETER_RENAMED';
+      const fieldRenames = msg.healed_telemetry?.field_renames || null;
+
+      const res = await executeGitOpsPrTest({
+        githubToken: token,
+        githubRepo: repo,
+        toolName: toolName,
+        endpoint: endpoint,
+        driftType: driftType,
+        fieldRenames: fieldRenames
+      });
+
+      setPrStatusByMsg(prev => ({
+        ...prev,
+        [msg.id]: res.telemetry || res
+      }));
+
+      if (onExecutionComplete) {
+        onExecutionComplete({
+          ...res,
+          featureTitle: 'DevOps GitOps Auto-PR (Layer 9)',
+          engineMode: 'aegis'
+        });
+      }
+    } catch (err) {
+      alert(`GitOps PR generation failed: ${err.message}`);
+    } finally {
+      setLoadingPrForMsg(null);
+    }
   };
 
   const handleSaveSettings = () => {
@@ -131,7 +175,9 @@ export default function ChatbotPanel({
 
     try {
       let response;
-      if (scenarioConfig?.id === 'single-flight') {
+      if (scenarioConfig?.id === 'blast-radius') {
+        response = await executeBlastRadiusTest();
+      } else if (scenarioConfig?.id === 'single-flight') {
         response = await executeSingleFlightTest();
       } else if (scenarioConfig?.id === 'sql-undo') {
         response = await executeSqlUndoTest();
@@ -171,7 +217,10 @@ export default function ChatbotPanel({
         onExecutionComplete({
           ...response,
           featureTitle,
-          engineMode: targetEngineMode
+          engineMode: targetEngineMode,
+          driftMode: scenarioConfig?.driftMode,
+          scenarioId: scenarioConfig?.id,
+          endpointId: scenarioConfig?.endpointId
         });
       }
     } catch (err) {
@@ -462,28 +511,54 @@ export default function ChatbotPanel({
                       <span>Total: {msg.healed_telemetry.total_latency_ms} ms</span>
                     </div>
 
-                    {/* Expandable Transformation Diff */}
-                    <div className="mt-1.5 pt-1.5 border-t border-emerald-200">
+                    {/* Expandable Transformation Diff & 1-Click GitOps PR Action */}
+                    <div className="mt-2 pt-1.5 border-t border-emerald-200 flex flex-wrap items-center justify-between gap-2">
                       <button
                         onClick={() => toggleDiff(msg.id)}
                         className="flex items-center gap-1 text-[10px] font-semibold text-emerald-900 hover:underline cursor-pointer"
                       >
                         {expandedDiff[msg.id] ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                        {expandedDiff[msg.id] ? 'Hide In-Memory Transformation Diff' : 'View In-Memory Transformation Diff'}
+                        {expandedDiff[msg.id] ? 'Hide In-Memory Diff' : 'View In-Memory Diff'}
                       </button>
 
-                      {expandedDiff[msg.id] && (
-                        <div className="mt-1.5 p-2 bg-gray-900 text-emerald-300 rounded text-[10px] overflow-x-auto whitespace-pre-wrap font-mono">
-                          <div className="text-gray-400">// Obsolete Drifted Request:</div>
-                          <div>{JSON.stringify(msg.healed_telemetry.original_params, null, 2)}</div>
-                          <div className="text-gray-400 mt-1">// Healed Contract (v1.1):</div>
-                          <div className="text-emerald-400">{JSON.stringify(msg.healed_telemetry.healed_params, null, 2)}</div>
-                          {Object.keys(msg.healed_telemetry.field_renames || {}).length > 0 && (
-                            <div className="text-amber-300 mt-1">// Applied Renames: {JSON.stringify(msg.healed_telemetry.field_renames)}</div>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {prStatusByMsg[msg.id] ? (
+                          <a
+                            href={prStatusByMsg[msg.id].github_url || 'https://github.com/R2K-2209/Genesis/pulls'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-2xs transition-colors"
+                          >
+                            <GitPullRequest className="w-3 h-3" />
+                            <span>Open PR on GitHub</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleCreatePrForMessage(msg)}
+                            disabled={loadingPrForMsg === msg.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                            title="Codify this hotpatch into a Pydantic v1.1 model, PyTest suite, and open GitHub PR"
+                          >
+                            <GitPullRequest className={`w-3 h-3 ${loadingPrForMsg === msg.id ? 'animate-spin' : ''}`} />
+                            <span>{loadingPrForMsg === msg.id ? 'Pushing PR...' : '🚀 Send GitHub PR'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {expandedDiff[msg.id] && (
+                      <div className="mt-1.5 p-2 bg-gray-900 text-emerald-300 rounded text-[10px] overflow-x-auto whitespace-pre-wrap font-mono">
+                        <div className="text-gray-400">// Obsolete Drifted Request:</div>
+                        <div>{JSON.stringify(msg.healed_telemetry.original_params, null, 2)}</div>
+                        <div className="text-gray-400 mt-1">// Healed Contract (v1.1):</div>
+                        <div className="text-emerald-400">{JSON.stringify(msg.healed_telemetry.healed_params, null, 2)}</div>
+                        {Object.keys(msg.healed_telemetry.field_renames || {}).length > 0 && (
+                          <div className="text-amber-300 mt-1">// Applied Renames: {JSON.stringify(msg.healed_telemetry.field_renames)}</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -21,19 +21,21 @@ import {
   GitBranch,
   Undo2,
   Key,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
+import { executeGitOpsPrTest } from '../services/api';
 
 export const JUDGES_FEATURE_SCENARIOS = [
   {
-    id: 'param-rename',
+    id: 'blast-radius',
     number: '01',
-    title: 'Parameter Rename Drift',
-    badge: '0-Token Fast-Path AST',
-    desc: 'Agent calls student_id=1 ➔ Server mutated to candidate_id (422) ➔ Aegis AST rewrites in 0.8ms (0 tokens) ➔ Recovers 200 OK',
-    query: 'Can student 1 graduate?',
-    endpointId: 'get_student',
-    driftMode: 'param_renamed'
+    title: 'Blast-Radius Policy Governor',
+    badge: 'USP 2 — Layer 2 Pre-Commit Gate',
+    desc: 'Multi-dimensional risk scoring (R = Σ wᵢSᵢ) across Structural, Sensitivity, Financial & Type dimensions. University records → Auto-Heal (R≈15.75) vs Banking transfer → Circuit Breaker (R≈76.0)',
+    query: 'Run contrastive blast-radius policy governance scoring: University vs Banking',
+    endpointId: 'blast_radius',
+    driftMode: 'healthy'
   },
   {
     id: 'type-cast',
@@ -136,6 +138,86 @@ export default function ExecutionConsole({
       setGithubSaved(false);
       setShowGithubModal(false);
     }, 1000);
+  };
+
+  // Dynamic PR state for all hotpatches and self-healed APIs
+  const [isPushingPr, setIsPushingPr] = useState(false);
+  const [prResult, setPrResult] = useState(null);
+  const [prError, setPrError] = useState(null);
+
+  useEffect(() => {
+    if (executionData?.telemetry?.pr_id) {
+      setPrResult(executionData.telemetry);
+    } else if (executionData?.data?.pr_id) {
+      setPrResult(executionData.data);
+    } else {
+      setPrResult(null);
+      setPrError(null);
+    }
+  }, [executionData]);
+
+  const handlePushGitOpsPr = async () => {
+    setIsPushingPr(true);
+    setPrError(null);
+    try {
+      const token = githubToken || localStorage.getItem('github_token') || '';
+      const repo = githubRepo || localStorage.getItem('github_repo') || 'R2K-2209/Genesis';
+
+      const toolName = executionData?.apiCall?.endpoint_name || executionData?.apiCall?.endpoint_id || executionData?.endpointId || 'get_student';
+      const endpoint = executionData?.apiCall?.path || '/api/v1/students/{student_id}/graduation-eligibility';
+      const driftType = executionData?.healed_telemetry?.drift_type || executionData?.driftMode || 'PARAMETER_RENAMED';
+
+      let fieldRenames = executionData?.healed_telemetry?.field_renames || null;
+      let typeCasts = null;
+      let nestedWraps = null;
+
+      if (driftType.includes('TYPE') || executionData?.featureTitle?.includes('Type Cast') || executionData?.driftMode === 'type_mutated') {
+        typeCasts = { student_id: 'int' };
+        fieldRenames = fieldRenames || {};
+      } else if (driftType.includes('NESTED') || executionData?.featureTitle?.includes('Nesting') || executionData?.driftMode === 'nested_wrapped') {
+        nestedWraps = { filter: { student_id: 'student_id' } };
+      } else if (!fieldRenames) {
+        fieldRenames = { student_id: 'candidate_id' };
+      }
+
+      const res = await executeGitOpsPrTest({
+        githubToken: token,
+        githubRepo: repo,
+        toolName,
+        endpoint,
+        driftType,
+        fieldRenames,
+        typeCasts,
+        nestedWraps
+      });
+
+      if (res.status === 'success') {
+        const telemetry = res.telemetry || {};
+        const prInfo = {
+          pr_id: telemetry.pr_id || res.data?.pr_id || 'PR-GITOPS-AUTO-1',
+          branch_name: telemetry.branch_name || res.data?.branch_name || `aegis/hotfix-${toolName}-v1.1`,
+          github_url: telemetry.github_url || res.data?.github_url || `https://github.com/${repo}/pull/new/${res.data?.branch_name || 'main'}`,
+          real_pr_created: telemetry.real_pr_created || false,
+          pydantic_model: res.data?.pydantic_model || `${toolName}ToolPayloadV1_1`,
+          pytest_suite: res.data?.pytest_suite || 'test_aegis_hotfix_contract_regression'
+        };
+        setPrResult(prInfo);
+
+        // Append log events into terminal stream
+        setStreamedLogs(prev => [
+          ...prev,
+          { elapsed_ms: 1.2, tag: 'GITOPS', level: 'info', message: `Layer 9 GitOps Daemon triggered for hotpatch on '${toolName}'` },
+          { elapsed_ms: 2.1, tag: 'SYNTHESIS', level: 'heal', message: `Synthesized backward-compatible Pydantic v1.1 Model & PyTest regression suite` },
+          { elapsed_ms: 3.5, tag: 'GITHUB', level: 'success', message: prInfo.real_pr_created ? `Live PR successfully opened on GitHub: ${prInfo.github_url}` : `Branch codified. Ready to merge to ${repo}` }
+        ]);
+      } else {
+        setPrError(res.message || 'Failed to synthesize PR');
+      }
+    } catch (err) {
+      setPrError(err.message || 'Error generating GitOps PR');
+    } finally {
+      setIsPushingPr(false);
+    }
   };
 
   // Live ticking uptime timer
@@ -416,9 +498,17 @@ export default function ExecutionConsole({
                           {scenario.title}
                         </span>
                       </div>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-gray-50 text-gray-600 border border-gray-200 font-mono shrink-0">
-                        {scenario.badge}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {['02', '03', '04', '05', '08'].includes(scenario.number) && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 font-mono flex items-center gap-0.5" title="Supports autonomous Layer 9 GitHub PR generation">
+                            <GitPullRequest className="w-2.5 h-2.5" />
+                            <span>GitOps PR</span>
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-gray-50 text-gray-600 border border-gray-200 font-mono shrink-0">
+                          {scenario.badge}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-[11px] text-gray-500 leading-normal line-clamp-2">
                       {scenario.desc}
@@ -513,6 +603,149 @@ export default function ExecutionConsole({
             </div>
           )}
 
+          {/* BLAST-RADIUS POLICY GOVERNOR SCORING BANNER (When Feature 01 executes) */}
+          {executionData?.telemetry?.blast_radius && (() => {
+            const sa = executionData.telemetry.scenario_a;
+            const sb = executionData.telemetry.scenario_b;
+            if (!sa || !sb) return null;
+
+            const RiskMeter = ({ score, label, action, color }) => {
+              const pct = Math.min(100, Math.max(0, score));
+              const barColor = color === 'green' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : 'bg-red-500';
+              const textColor = color === 'green' ? 'text-emerald-700' : color === 'amber' ? 'text-amber-700' : 'text-red-700';
+              const bgColor = color === 'green' ? 'bg-emerald-50 border-emerald-200' : color === 'amber' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+              return (
+                <div className={`p-2.5 rounded-lg border ${bgColor} space-y-1.5`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">{label}</span>
+                    <span className={`text-sm font-extrabold font-mono ${textColor}`}>R = {score}</span>
+                  </div>
+                  <div className="relative w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                    {/* Threshold markers */}
+                    <div className="absolute left-[35%] top-0 h-full w-px bg-amber-400 z-10" title="R=35 threshold" />
+                    <div className="absolute left-[70%] top-0 h-full w-px bg-red-400 z-10" title="R=70 threshold" />
+                    <div className={`h-full ${barColor} rounded-full transition-all duration-700 ease-out`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-[9px] text-gray-400 font-mono">
+                      <span>0</span>
+                      <span className="text-amber-500">35</span>
+                      <span className="text-red-500">70</span>
+                      <span>100</span>
+                    </div>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${color === 'green' ? 'bg-emerald-100 text-emerald-800' : color === 'amber' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'} font-mono`}>
+                      {action}
+                    </span>
+                  </div>
+                </div>
+              );
+            };
+
+            const DimensionRow = ({ label, weight, rawScore, weighted, icon }) => (
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="w-4 text-center">{icon}</span>
+                <span className="text-gray-600 font-medium w-[90px] truncate">{label}</span>
+                <span className="text-[10px] text-gray-400 font-mono w-[45px]">w={weight}</span>
+                <div className="flex-1 flex items-center gap-1">
+                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${Math.min(100, rawScore)}%` }} />
+                  </div>
+                  <span className="font-mono text-gray-700 font-bold w-[28px] text-right">{rawScore}</span>
+                </div>
+                <span className="font-mono text-indigo-700 font-bold w-[40px] text-right">+{weighted}</span>
+              </div>
+            );
+
+            return (
+              <div className="p-3 bg-gradient-to-r from-indigo-50 via-violet-50 to-indigo-50 border border-indigo-200 rounded-lg text-xs space-y-3 shrink-0 shadow-2xs">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white font-mono uppercase">
+                      USP 2 — Policy Governor
+                    </span>
+                    <span className="font-bold text-gray-900">
+                      Blast-Radius Risk Scoring: R = w₁S<sub>struct</sub> + w₂S<sub>sens</sub> + w₃S<sub>fin</sub> + w₄S<sub>type</sub>
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 font-mono">
+                    0 Tokens • Pre-Commit Gate
+                  </span>
+                </div>
+
+                {/* Contrastive Risk Meters */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <RiskMeter
+                    score={sa.risk_score}
+                    label="Scenario A: University Student Records"
+                    action={sa.action.replace(/_/g, ' ')}
+                    color={sa.action_color}
+                  />
+                  <RiskMeter
+                    score={sb.risk_score}
+                    label="Scenario B: Banking Wire Transfer"
+                    action={sb.action.replace(/_/g, ' ')}
+                    color={sb.action_color}
+                  />
+                </div>
+
+                {/* Dimension Breakdown Table */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Scenario A breakdown */}
+                  <div className="bg-white/80 p-2 rounded-lg border border-indigo-100 space-y-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scenario A Dimensions</div>
+                      {sa.table_name && (
+                        <span className="text-[9px] font-mono bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 font-bold">
+                          Table: {sa.table_name}
+                        </span>
+                      )}
+                    </div>
+                    <DimensionRow label="S_struct" weight="0.15" rawScore={sa.dimensions.s_struct.score} weighted={sa.dimensions.s_struct.weighted} icon="🏗️" />
+                    <DimensionRow label="S_sens" weight="0.30" rawScore={sa.dimensions.s_sens.score} weighted={sa.dimensions.s_sens.weighted} icon="🔐" />
+                    <DimensionRow label="S_fin" weight="0.40" rawScore={sa.dimensions.s_fin.score} weighted={sa.dimensions.s_fin.weighted} icon="💰" />
+                    <DimensionRow label="S_type" weight="0.15" rawScore={sa.dimensions.s_type.score} weighted={sa.dimensions.s_type.weighted} icon="🔄" />
+                    <div className="border-t border-indigo-100 pt-1 flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-gray-700">Composite R</span>
+                      <span className="font-extrabold text-emerald-700 font-mono text-sm">= {sa.risk_score}</span>
+                    </div>
+                  </div>
+                  {/* Scenario B breakdown */}
+                  <div className="bg-white/80 p-2 rounded-lg border border-red-100 space-y-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Scenario B Dimensions</div>
+                      {sb.table_name && (
+                        <span className="text-[9px] font-mono bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200 font-bold" title="Evaluated against live SQLite database table">
+                          Table: {sb.table_name} ({sb.total_records || 5} rows)
+                        </span>
+                      )}
+                    </div>
+                    <DimensionRow label="S_struct" weight="0.15" rawScore={sb.dimensions.s_struct.score} weighted={sb.dimensions.s_struct.weighted} icon="🏗️" />
+                    <DimensionRow label="S_sens" weight="0.30" rawScore={sb.dimensions.s_sens.score} weighted={sb.dimensions.s_sens.weighted} icon="🔐" />
+                    <DimensionRow label="S_fin" weight="0.40" rawScore={sb.dimensions.s_fin.score} weighted={sb.dimensions.s_fin.weighted} icon="💰" />
+                    <DimensionRow label="S_type" weight="0.15" rawScore={sb.dimensions.s_type.score} weighted={sb.dimensions.s_type.weighted} icon="🔄" />
+                    <div className="border-t border-red-100 pt-1 flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-gray-700">Composite R</span>
+                      <span className="font-extrabold text-red-700 font-mono text-sm">= {sb.risk_score}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Decision Boundary Legend */}
+                <div className="flex items-center justify-between bg-white/60 px-3 py-1.5 rounded border border-indigo-100">
+                  <div className="flex items-center gap-4 text-[10px] font-mono">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />R &lt; 35 → AUTO_HEAL</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />35 ≤ R &lt; 70 → AUDIT_LOG</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />R ≥ 70 → CIRCUIT_BREAKER (HITL)</span>
+                  </div>
+                  <span className="text-[10px] text-gray-500 font-mono">
+                    Eval: {(sa.computation_time_ms + sb.computation_time_ms).toFixed(3)}ms | 0 tokens
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* SECTION 5.1 CONCURRENCY PROOF BANNER (When Feature 06 executes) */}
           {executionData?.telemetry?.concurrent_requests && (
             <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg text-xs space-y-2 shrink-0 shadow-2xs">
@@ -576,51 +809,131 @@ export default function ExecutionConsole({
             </div>
           )}
 
-          {/* LAYER 9 DEVOPS GITOPS AUTO-PR BANNER (When Feature 08 executes) */}
-          {(executionData?.telemetry?.pr_id || executionData?.featureTitle?.includes('GitOps')) && (
-            <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg text-xs space-y-2 shrink-0 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-600 text-white font-mono uppercase">
-                    Layer 9 Verified
-                  </span>
-                  <span className="font-bold text-gray-900">
-                    DevOps GitOps Remediation: Pydantic v1.1 Model + PyTest Regression Suite Synthesized
-                  </span>
+          {/* LAYER 9 DEVOPS GITOPS AUTO-PR BANNER (Visible for any healed hotpatch or Feature 08) */}
+          {(() => {
+            const isBlastRadius = Boolean(executionData?.telemetry?.blast_radius || executionData?.scenarioId === 'blast-radius');
+            const isHealed = !isBlastRadius && Boolean(
+              executionData?.telemetry?.healed ||
+              executionData?.apiCall?.healed ||
+              executionData?.healed ||
+              executionData?.healed_telemetry ||
+              (executionData?.driftMode && executionData?.driftMode !== 'healthy' && executionData?.status === 'completed' && executionData?.engineMode === 'aegis')
+            );
+            const activePr = prResult || (executionData?.telemetry?.pr_id ? executionData.telemetry : null);
+            const isGitOpsScenario = !isBlastRadius && Boolean(executionData?.featureTitle?.includes('GitOps') || executionData?.scenarioId === 'gitops-pr');
+
+            if (activePr) {
+              return (
+                <div className="p-3 bg-gradient-to-r from-purple-50 via-pink-50 to-purple-50 border border-purple-200 rounded-lg text-xs space-y-2 shrink-0 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-600 text-white font-mono uppercase">
+                        Layer 9 Verified
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        DevOps GitOps Remediation: Pydantic v1.1 Model + PyTest Regression Suite Synthesized
+                      </span>
+                      {activePr.real_pr_created && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono">
+                          Live PR Opened
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setShowGithubModal(true)}
+                        type="button"
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-purple-700 border border-purple-300 hover:bg-purple-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <Key className="w-3 h-3" />
+                        <span>GitHub Config</span>
+                      </button>
+                      {activePr.github_url && (
+                        <a
+                          href={activePr.github_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1 transition-colors shadow-2xs"
+                        >
+                          <span>Open PR on GitHub</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                    <span className="font-mono bg-white px-2 py-0.5 rounded border border-purple-100">
+                      Branch: <strong>{activePr.branch_name || 'aegis/hotfix-get_student-v1.1'}</strong>
+                    </span>
+                    <span className="text-gray-400">•</span>
+                    <span>Auto-generated model: <strong>{activePr.pydantic_model || 'Get_studentToolPayloadV1_1'}</strong></span>
+                    <span className="text-gray-400">•</span>
+                    <span>PyTest suite: <strong>{activePr.pytest_suite || 'test_aegis_hotfix_contract_regression'}</strong></span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setShowGithubModal(true)}
-                    type="button"
-                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-purple-700 border border-purple-300 hover:bg-purple-100 transition-colors flex items-center gap-1 cursor-pointer"
-                  >
-                    <Key className="w-3 h-3" />
-                    <span>GitHub Config</span>
-                  </button>
-                  {executionData?.telemetry?.github_url && (
-                    <a
-                      href={executionData.telemetry.github_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1 transition-colors"
-                    >
-                      <span>Open PR on GitHub</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
+              );
+            }
+
+            if (isHealed || isGitOpsScenario) {
+              return (
+                <div className="p-3 bg-gradient-to-r from-purple-50/90 via-indigo-50/90 to-purple-50/90 border border-purple-300 rounded-lg text-xs space-y-2 shrink-0 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-600 text-white font-mono uppercase shrink-0">
+                        Layer 9 GitOps Ready
+                      </span>
+                      <span className="font-bold text-gray-900 truncate">
+                        Hotpatch Verified in MVCC Memory: Codify into GitHub PR
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setShowGithubModal(true)}
+                        type="button"
+                        className="px-2 py-1 rounded text-[10px] font-bold bg-white text-purple-700 border border-purple-300 hover:bg-purple-100 transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Configure GitHub Personal Access Token & Repo"
+                      >
+                        <Key className="w-3 h-3" />
+                        <span>GitHub Config</span>
+                      </button>
+                      <button
+                        onClick={handlePushGitOpsPr}
+                        disabled={isPushingPr}
+                        type="button"
+                        id="btn-send-github-pr-hotpatch"
+                        className="px-3 py-1 rounded text-[10px] font-bold bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                        title="Synthesize Pydantic v1.1 model, PyTest regression suite & open GitHub PR"
+                      >
+                        {isPushingPr ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Pushing PR...</span>
+                          </>
+                        ) : (
+                          <>
+                            <GitPullRequest className="w-3 h-3" />
+                            <span>Send GitHub PR for this Hotpatch</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-gray-600">
+                    <p className="text-gray-500">
+                      Aegis self-healed this schema drift in &lt;1ms. Codify this runtime AST adapter into backward-compatible Pydantic v1.1 model with field aliases, PyTest regression suite &amp; push to GitHub.
+                    </p>
+                    {prError && (
+                      <span className="text-red-600 font-medium ml-2 shrink-0">
+                        Error: {prError}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
-                <span className="font-mono bg-white px-2 py-0.5 rounded border border-purple-100">
-                  Branch: <strong>{executionData?.telemetry?.branch_name || 'aegis/hotfix-get_student-v1.1'}</strong>
-                </span>
-                <span className="text-gray-400">•</span>
-                <span>Auto-generated model: <strong>Get_studentToolPayloadV1_1</strong></span>
-                <span className="text-gray-400">•</span>
-                <span>PyTest suite: <strong>test_aegis_hotfix_contract_regression</strong></span>
-              </div>
-            </div>
-          )}
+              );
+            }
+
+            return null;
+          })()}
 
           {/* 1. API USED FOR EXECUTION (Postman-style endpoint banner) */}
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-2xs space-y-2 shrink-0">
