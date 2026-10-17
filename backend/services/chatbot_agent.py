@@ -361,6 +361,27 @@ async def execute_local_api(
         }
 
 
+
+ENDPOINT_AFFECTED_FIELDS = {
+    "complex-banking-transfer": ["banking_wire_transfers.id", "banking_wire_transfers.amount", "banking_wire_transfers.status", "banking_wire_transfers.compliance_flag"],
+    "simple-students": ["students.id", "people.first_name", "people.last_name", "students.status"],
+    "simple-courses": ["courses.code", "courses.title", "courses.department_id", "courses.credits"],
+    "simple-books": ["books.id", "books.title", "books.author", "books.isbn"],
+    "simple-departments": ["departments.id", "departments.name", "departments.code"],
+    "simple-clubs": ["clubs.id", "clubs.name", "clubs.category"],
+    "medium-student-summary": ["students.id", "enrollments.grade", "courses.credits"],
+    "medium-syllabus": ["courses.id", "syllabus_sections.title", "textbooks.isbn"],
+    "medium-student-finance": ["invoices.id", "invoices.total_amount", "invoices.status", "payments.amount"],
+    "medium-library-loans": ["library_cards.card_number", "book_loans.due_date", "books.title"],
+    "medium-payment-record": ["payments.id", "payments.invoice_id", "payments.amount", "invoices.status"],
+    "complex-transcript": ["students.id", "enrollments.grade", "courses.code", "courses.title"],
+    "complex-graduation-audit": ["students.id", "students.status", "enrollments.grade", "courses.credits"],
+    "complex-dept-workload": ["departments.id", "faculty.id", "sections.enrollment_capacity"],
+    "complex-scholarship-matcher": ["scholarships.id", "scholarships.min_gpa", "students.gpa"],
+    "complex-prerequisite-dag": ["courses.id", "prerequisites.prereq_course_id", "courses.code"]
+}
+
+
 async def execute_local_api_with_aegis(
     endpoint_id: str,
     params: Dict[str, Any],
@@ -426,7 +447,11 @@ async def execute_local_api_with_aegis(
         total_latency = round((time.perf_counter() - start_time) * 1000, 2)
 
         if replay_res.get("ok"):
-            # Record in Request Ledger
+            # Record in Request Ledger with full real-time telemetry
+            aff_fields = ENDPOINT_AFFECTED_FIELDS.get(endpoint_id, ["students.id", "enrollments.grade"])
+            renames_str = ", ".join([f"{k} ➔ {v}" for k, v in diff.field_renames.items()]) if diff.field_renames else diff.explanation
+            transform_rule = f"AST Rewrite: {renames_str}" if diff.field_renames else f"AST Repair: {diff.drift_type}"
+
             aegis_request_ledger.record_healing(
                 endpoint=initial_res.get("path", endpoint_id),
                 drift_type=diff.drift_type,
@@ -437,7 +462,11 @@ async def execute_local_api_with_aegis(
                 diagnosis_latency_ms=diag_latency,
                 total_latency_ms=total_latency,
                 provenance_verified=True,
-                explanation=diff.explanation
+                explanation=diff.explanation,
+                endpoint_id=endpoint_id,
+                tokens_burned=0,
+                affected_database_fields=aff_fields,
+                transformation_rule=transform_rule
             )
 
             return {

@@ -4,7 +4,7 @@ Implements:
 1. Immutable Request Ledger with patch_id and request_trace_id tracking
 2. Bounded transaction idempotency via Idempotency-Key
 3. 1-Click Rollback Execution with compensating SQL verification
-4. Full audit querying and filtering
+4. Full audit querying and filtering with token burn, latency, and DB field impact
 """
 
 import os
@@ -48,12 +48,16 @@ class AegisRequestLedger:
                     provenance_verified INTEGER NOT NULL,
                     explanation TEXT,
                     compensating_sql TEXT,
-                    rollback_status TEXT DEFAULT 'ACTIVE'
+                    rollback_status TEXT DEFAULT 'ACTIVE',
+                    endpoint_id TEXT DEFAULT '',
+                    tokens_burned INTEGER DEFAULT 0,
+                    affected_database_fields TEXT DEFAULT '[]',
+                    transformation_rule TEXT DEFAULT ''
                 )
             """)
             conn.commit()
 
-            # Ensure any existing table has the new columns
+            # Ensure any existing table has all expected columns
             cursor.execute("PRAGMA table_info(aegis_request_ledger)")
             cols = [col[1] for col in cursor.fetchall()]
             if "patch_id" not in cols:
@@ -62,6 +66,14 @@ class AegisRequestLedger:
                 cursor.execute("ALTER TABLE aegis_request_ledger ADD COLUMN request_trace_id TEXT DEFAULT ''")
             if "rollback_status" not in cols:
                 cursor.execute("ALTER TABLE aegis_request_ledger ADD COLUMN rollback_status TEXT DEFAULT 'ACTIVE'")
+            if "endpoint_id" not in cols:
+                cursor.execute("ALTER TABLE aegis_request_ledger ADD COLUMN endpoint_id TEXT DEFAULT ''")
+            if "tokens_burned" not in cols:
+                cursor.execute("ALTER TABLE aegis_request_ledger ADD COLUMN tokens_burned INTEGER DEFAULT 0")
+            if "affected_database_fields" not in cols:
+                cursor.execute("ALTER TABLE aegis_request_ledger ADD COLUMN affected_database_fields TEXT DEFAULT '[]'")
+            if "transformation_rule" not in cols:
+                cursor.execute("ALTER TABLE aegis_request_ledger ADD COLUMN transformation_rule TEXT DEFAULT ''")
             conn.commit()
             conn.close()
         except Exception as e:
@@ -81,12 +93,18 @@ class AegisRequestLedger:
         explanation: str = "",
         compensating_sql: Optional[str] = None,
         patch_id: Optional[str] = None,
-        request_trace_id: Optional[str] = None
+        request_trace_id: Optional[str] = None,
+        endpoint_id: Optional[str] = None,
+        tokens_burned: int = 0,
+        affected_database_fields: Optional[List[str]] = None,
+        transformation_rule: str = ""
     ) -> str:
         record_id = str(uuid.uuid4())
         p_id = patch_id or f"patch-{uuid.uuid4().hex[:8]}"
         trace_id = request_trace_id or str(uuid.uuid4())
         timestamp = datetime.utcnow().isoformat()
+        ep_id = endpoint_id or ""
+        aff_fields = affected_database_fields or []
 
         # Generate default compensating SQL if not provided and write detected
         if not compensating_sql:
@@ -106,8 +124,9 @@ class AegisRequestLedger:
                     id, patch_id, request_trace_id, timestamp, endpoint, drift_type,
                     original_payload, healed_payload, status_code_before, status_code_after,
                     diagnosis_latency_ms, total_latency_ms, provenance_verified,
-                    explanation, compensating_sql, rollback_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+                    explanation, compensating_sql, rollback_status,
+                    endpoint_id, tokens_burned, affected_database_fields, transformation_rule
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
             """, (
                 record_id,
                 p_id,
@@ -123,7 +142,11 @@ class AegisRequestLedger:
                 total_latency_ms,
                 1 if provenance_verified else 0,
                 explanation,
-                compensating_sql
+                compensating_sql,
+                ep_id,
+                tokens_burned,
+                json.dumps(aff_fields),
+                transformation_rule
             ))
             conn.commit()
             conn.close()
@@ -136,6 +159,7 @@ class AegisRequestLedger:
         self,
         limit: int = 50,
         endpoint_filter: Optional[str] = None,
+        endpoint_id_filter: Optional[str] = None,
         drift_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         try:
@@ -146,9 +170,15 @@ class AegisRequestLedger:
             query = "SELECT * FROM aegis_request_ledger WHERE 1=1"
             params: List[Any] = []
 
-            if endpoint_filter:
-                query += " AND endpoint LIKE ?"
+            if endpoint_id_filter:
+                query += " AND (endpoint_id = ? OR endpoint LIKE ?)"
+                params.append(endpoint_id_filter)
+                params.append(f"%{endpoint_id_filter}%")
+            elif endpoint_filter:
+                query += " AND (endpoint LIKE ? OR endpoint_id LIKE ?)"
                 params.append(f"%{endpoint_filter}%")
+                params.append(f"%{endpoint_filter}%")
+
             if drift_filter:
                 query += " AND drift_type = ?"
                 params.append(drift_filter)
@@ -171,6 +201,14 @@ class AegisRequestLedger:
                     item["healed_payload"] = json.loads(item["healed_payload"])
                 except Exception:
                     pass
+                if isinstance(item.get("affected_database_fields"), str):
+                    try:
+                        item["affected_database_fields"] = json.loads(item["affected_database_fields"])
+                    except Exception:
+                        item["affected_database_fields"] = []
+                elif not item.get("affected_database_fields"):
+                    item["affected_database_fields"] = []
+
                 results.append(item)
             return results
         except Exception as e:
@@ -195,6 +233,11 @@ class AegisRequestLedger:
                     item["healed_payload"] = json.loads(item["healed_payload"])
                 except Exception:
                     pass
+                if isinstance(item.get("affected_database_fields"), str):
+                    try:
+                        item["affected_database_fields"] = json.loads(item["affected_database_fields"])
+                    except Exception:
+                        item["affected_database_fields"] = []
                 return item
             return None
         except Exception as e:

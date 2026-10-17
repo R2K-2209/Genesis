@@ -183,8 +183,12 @@ export async function sendChatMessage(message, { groqApiKey = '', model = 'llama
   return res.json();
 }
 
-export async function fetchAegisLedger(limit = 50) {
-  const res = await fetch(`${API_BASE_URL}/api/v1/aegis/ledger?limit=${limit}`);
+export async function fetchAegisLedger(limit = 50, endpointId = null) {
+  let url = `${API_BASE_URL}/api/v1/aegis/ledger?limit=${limit}`;
+  if (endpointId) {
+    url += `&endpoint_id=${encodeURIComponent(endpointId)}`;
+  }
+  const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch Aegis ledger');
   return res.json();
 }

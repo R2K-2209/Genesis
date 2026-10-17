@@ -161,9 +161,14 @@ def reset_drift_state_endpoint():
 
 
 @app.get("/api/v1/aegis/ledger")
-def get_aegis_ledger_endpoint(limit: int = 50):
+def get_aegis_ledger_endpoint(limit: int = 50, endpoint_id: Optional[str] = None, endpoint: Optional[str] = None, drift_type: Optional[str] = None):
     from backend.services.aegis_ledger import aegis_request_ledger
-    records = aegis_request_ledger.get_recent_records(limit=limit)
+    records = aegis_request_ledger.get_recent_records(
+        limit=limit,
+        endpoint_id_filter=endpoint_id,
+        endpoint_filter=endpoint,
+        drift_filter=drift_type
+    )
     return {"status": "ok", "count": len(records), "records": records}
 
 
@@ -621,10 +626,11 @@ from backend.services.aegis_time_machine import aegis_time_machine
 
 
 @app.get("/api/aegis/ledger")
-async def get_aegis_ledger(limit: int = 50, endpoint: Optional[str] = None, drift_type: Optional[str] = None):
+async def get_aegis_ledger(limit: int = 50, endpoint_id: Optional[str] = None, endpoint: Optional[str] = None, drift_type: Optional[str] = None):
     """Layer 8: Query the immutable request ledger with filter support."""
     records = aegis_request_ledger.get_recent_records(
         limit=limit,
+        endpoint_id_filter=endpoint_id,
         endpoint_filter=endpoint,
         drift_filter=drift_type
     )
